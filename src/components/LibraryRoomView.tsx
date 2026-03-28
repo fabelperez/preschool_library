@@ -15,6 +15,11 @@ interface Shelf {
   id: string;
   name: string;
   position: number;
+  layoutX: number;
+  layoutY: number;
+  layoutWidth: number;
+  layoutHeight: number;
+  layoutRotation: number;
   sections: ShelfSection[];
 }
 
@@ -48,18 +53,32 @@ interface ShelfDetail {
   sections: DetailSection[];
 }
 
-// Shelf positions in the room (percentage-based for responsiveness)
-const SHELF_LAYOUTS: Record<number, { top: string; left: string; width: string; height: string; rotate?: string }> = {
+// Fallback positions when shelves have no stored layout (all zeros)
+const FALLBACK_LAYOUTS: Record<number, { top: string; left: string; width: string; height: string; rotate?: string }> = {
   1: { top: "8%", left: "5%", width: "40%", height: "14%" },
   2: { top: "8%", left: "55%", width: "40%", height: "14%" },
-  3: { top: "38%", left: "5%", width: "25%", height: "14%", rotate: "rotate(0deg)" },
-  4: { top: "38%", left: "70%", width: "25%", height: "14%", rotate: "rotate(0deg)" },
+  3: { top: "38%", left: "5%", width: "25%", height: "14%" },
+  4: { top: "38%", left: "70%", width: "25%", height: "14%" },
   5: { top: "65%", left: "15%", width: "30%", height: "14%" },
   6: { top: "65%", left: "55%", width: "30%", height: "14%" },
 };
 
-function getShelfStyle(index: number) {
-  const layout = SHELF_LAYOUTS[index + 1] || {
+function hasDbLayout(shelf: Shelf) {
+  return shelf.layoutWidth > 0 && shelf.layoutHeight > 0;
+}
+
+function getShelfStyle(shelf: Shelf, index: number) {
+  if (hasDbLayout(shelf)) {
+    return {
+      top: `${shelf.layoutY}%`,
+      left: `${shelf.layoutX}%`,
+      width: `${shelf.layoutWidth}%`,
+      height: `${shelf.layoutHeight}%`,
+      rotate: shelf.layoutRotation !== 0 ? `rotate(${shelf.layoutRotation}deg)` : undefined,
+    };
+  }
+  // Fallback for shelves without saved positions
+  const layout = FALLBACK_LAYOUTS[index + 1] || {
     top: `${20 + (index % 3) * 30}%`,
     left: `${5 + Math.floor(index / 3) * 35}%`,
     width: "25%",
@@ -125,7 +144,7 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
 
         {/* Shelves */}
         {shelves.map((shelf, index) => {
-          const style = getShelfStyle(index);
+          const style = getShelfStyle(shelf, index);
           const colors = getAvailabilityColor(shelf.sections);
           const isSelected = selectedShelf?.id === shelf.id;
           const totalBooks = shelf.sections.reduce((sum, s) => sum + s.bookCount, 0);

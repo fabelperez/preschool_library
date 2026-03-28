@@ -45,6 +45,11 @@ export async function POST(request: NextRequest) {
       data: {
         name,
         position: position || 0,
+        layoutX: body.layoutX ?? 5,
+        layoutY: body.layoutY ?? 5,
+        layoutWidth: body.layoutWidth ?? 25,
+        layoutHeight: body.layoutHeight ?? 14,
+        layoutRotation: body.layoutRotation ?? 0,
         sections: sections ? {
           create: sections.map((s: { categoryId: string; label?: string; position?: number }) => ({
             categoryId: s.categoryId,

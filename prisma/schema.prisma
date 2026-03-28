@@ -33,10 +33,15 @@ model Category {
 }
 
 model Shelf {
-  id       String         @id @default(cuid())
-  name     String
-  position Int            @default(0)
-  sections ShelfSection[]
+  id             String         @id @default(cuid())
+  name           String
+  position       Int            @default(0)
+  layoutX        Float          @default(0)
+  layoutY        Float          @default(0)
+  layoutWidth    Float          @default(25)
+  layoutHeight   Float          @default(14)
+  layoutRotation Float          @default(0)
+  sections       ShelfSection[]
 }
 
 model ShelfSection {

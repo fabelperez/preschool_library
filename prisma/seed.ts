@@ -34,15 +34,15 @@ async function main() {
     )
   );
 
-  // Create shelves
+  // Create shelves with layout positions
   const shelf1 = await prisma.shelf.create({
-    data: { name: "Shelf A - Main Wall", position: 1 },
+    data: { name: "Shelf A - Main Wall", position: 1, layoutX: 5, layoutY: 8, layoutWidth: 40, layoutHeight: 14 },
   });
   const shelf2 = await prisma.shelf.create({
-    data: { name: "Shelf B - Reading Corner", position: 2 },
+    data: { name: "Shelf B - Reading Corner", position: 2, layoutX: 55, layoutY: 8, layoutWidth: 40, layoutHeight: 14 },
   });
   const shelf3 = await prisma.shelf.create({
-    data: { name: "Shelf C - Window Side", position: 3 },
+    data: { name: "Shelf C - Window Side", position: 3, layoutX: 5, layoutY: 65, layoutWidth: 30, layoutHeight: 14 },
   });
 
   // Create shelf sections (assign categories to shelves)

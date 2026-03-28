@@ -17,6 +17,11 @@ interface Shelf {
   id: string;
   name: string;
   position: number;
+  layoutX: number;
+  layoutY: number;
+  layoutWidth: number;
+  layoutHeight: number;
+  layoutRotation: number;
   sections: ShelfSection[];
 }
 

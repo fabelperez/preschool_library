@@ -116,12 +116,20 @@ export default function ManageShelvesPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">🗄️ Manage Shelves</h1>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
-        >
-          {showAddForm ? "Cancel" : "+ Add Shelf"}
-        </button>
+        <div className="flex gap-2">
+          <Link
+            href="/admin/shelves/layout"
+            className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium"
+          >
+            📐 Edit Room Layout
+          </Link>
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+          >
+            {showAddForm ? "Cancel" : "+ Add Shelf"}
+          </button>
+        </div>
       </div>
 
       {message && (

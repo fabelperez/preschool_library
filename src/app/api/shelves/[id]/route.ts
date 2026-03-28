@@ -37,10 +37,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const body = await request.json();
     const { name, position, sections } = body;
 
-    // Update shelf basic info
+    // Update shelf basic info + layout fields
     const shelf = await prisma.shelf.update({
       where: { id: params.id },
-      data: { name, position },
+      data: {
+        name,
+        position,
+        ...(body.layoutX !== undefined && { layoutX: body.layoutX }),
+        ...(body.layoutY !== undefined && { layoutY: body.layoutY }),
+        ...(body.layoutWidth !== undefined && { layoutWidth: body.layoutWidth }),
+        ...(body.layoutHeight !== undefined && { layoutHeight: body.layoutHeight }),
+        ...(body.layoutRotation !== undefined && { layoutRotation: body.layoutRotation }),
+      },
     });
 
     // If sections provided, replace them

@@ -23,7 +23,8 @@
     "nodemailer": "^7.0.13",
     "prisma": "^6.19.2",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "react-rnd": "^10.5.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
