@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 📚 Little Library — Preschool Book Catalog
 
-## Getting Started
+A web application for managing a preschool library. Teachers can search for books, see which shelf they belong on, and check them out. Admins manage the book inventory and shelf layout. Supports barcode scanning (ISBN) to quickly add and look up books.
 
-First, run the development server:
+## Quick Start
 
 ```bash
+# Install dependencies
+npm install
+
+# Set up the database
+npm run db:migrate
+npm run db:seed
+
+# Start the dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to view the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Features
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Library Layout** — Visual grid of shelves, sections, and categories with availability badges
+- **Book Management** — Add books via barcode scan (camera or USB scanner) with auto-fill from Open Library API
+- **Search** — Find books by title, author, or ISBN; results show shelf location and availability
+- **Checkout/Check-in** — Teachers select their name and check out available books; check in by scanning the barcode
+- **Admin Panel** — Manage shelves, sections, categories, and teachers (login required)
 
-## Learn More
+## Default Admin Login
 
-To learn more about Next.js, take a look at the following resources:
+- Username: `admin`
+- Password: `admin123`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Tech Stack
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Next.js 14 (App Router) + TypeScript
+- SQLite + Prisma ORM
+- Tailwind CSS
+- NextAuth.js v4
+- html5-qrcode (barcode scanning)
+- Open Library API (ISBN lookup)
 
-## Deploy on Vercel
+## Scripts
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Production build |
+| `npm run lint` | Run ESLint |
+| `npm run db:migrate` | Run database migrations |
+| `npm run db:seed` | Seed sample data |
+| `npm run db:reset` | Reset database |
+| `npm run db:studio` | Open Prisma Studio |

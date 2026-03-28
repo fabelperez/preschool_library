@@ -1,0 +1,229 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+
+interface Category {
+  id: string;
+  name: string;
+}
+
+interface ShelfSection {
+  id: string;
+  label: string | null;
+  position: number;
+  category: Category;
+}
+
+interface Shelf {
+  id: string;
+  name: string;
+  position: number;
+  sections: ShelfSection[];
+}
+
+export default function ManageShelvesPage() {
+  const [shelves, setShelves] = useState<Shelf[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newShelfName, setNewShelfName] = useState("");
+  const [newShelfSections, setNewShelfSections] = useState<{ categoryId: string; label: string }[]>([]);
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const fetchData = async () => {
+    try {
+      const shelvesRes = await fetch("/api/shelves");
+      const shelvesData = await shelvesRes.json();
+      setShelves(shelvesData);
+
+      // Extract categories
+      const cats = new Map<string, string>();
+      for (const shelf of shelvesData) {
+        for (const section of shelf.sections) {
+          if (section.category) {
+            cats.set(section.category.id, section.category.name);
+          }
+        }
+      }
+      setCategories(Array.from(cats.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  const addSection = () => {
+    setNewShelfSections([...newShelfSections, { categoryId: "", label: "" }]);
+  };
+
+  const removeSection = (index: number) => {
+    setNewShelfSections(newShelfSections.filter((_, i) => i !== index));
+  };
+
+  const updateSection = (index: number, field: "categoryId" | "label", value: string) => {
+    const updated = [...newShelfSections];
+    updated[index] = { ...updated[index], [field]: value };
+    setNewShelfSections(updated);
+  };
+
+  const handleAddShelf = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage(null);
+
+    try {
+      const res = await fetch("/api/shelves", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newShelfName,
+          position: shelves.length + 1,
+          sections: newShelfSections
+            .filter((s) => s.categoryId)
+            .map((s, i) => ({ categoryId: s.categoryId, label: s.label || null, position: i + 1 })),
+        }),
+      });
+
+      if (res.ok) {
+        setMessage({ type: "success", text: "Shelf created!" });
+        setNewShelfName("");
+        setNewShelfSections([]);
+        setShowAddForm(false);
+        fetchData();
+      } else {
+        const err = await res.json();
+        setMessage({ type: "error", text: err.error || "Failed to create shelf" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Something went wrong" });
+    }
+  };
+
+  const handleDeleteShelf = async (shelfId: string) => {
+    if (!confirm("Delete this shelf and all its sections?")) return;
+    
+    await fetch(`/api/shelves/${shelfId}`, { method: "DELETE" });
+    fetchData();
+    setMessage({ type: "success", text: "Shelf deleted" });
+  };
+
+  if (loading) return <div className="text-center py-12 text-gray-500">Loading...</div>;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-gray-900">🗄️ Manage Shelves</h1>
+        <button
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+        >
+          {showAddForm ? "Cancel" : "+ Add Shelf"}
+        </button>
+      </div>
+
+      {message && (
+        <div className={`p-4 rounded-lg ${
+          message.type === "success" ? "bg-green-50 border border-green-200 text-green-700" : "bg-red-50 border border-red-200 text-red-700"
+        }`}>
+          {message.text}
+        </div>
+      )}
+
+      {showAddForm && (
+        <form onSubmit={handleAddShelf} className="bg-gray-50 border rounded-xl p-5 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Shelf Name</label>
+            <input
+              type="text"
+              value={newShelfName}
+              onChange={(e) => setNewShelfName(e.target.value)}
+              required
+              placeholder="e.g., Shelf D - Back Wall"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <label className="text-sm font-medium text-gray-700">Sections</label>
+              <button type="button" onClick={addSection} className="text-sm text-indigo-600 hover:underline">
+                + Add Section
+              </button>
+            </div>
+            {newShelfSections.map((section, i) => (
+              <div key={i} className="flex gap-2 mb-2">
+                <select
+                  value={section.categoryId}
+                  onChange={(e) => updateSection(i, "categoryId", e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+                >
+                  <option value="">Select category...</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  value={section.label}
+                  onChange={(e) => updateSection(i, "label", e.target.value)}
+                  placeholder="Section label"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+                />
+                <button type="button" onClick={() => removeSection(i)} className="px-2 text-red-500 hover:text-red-700">✕</button>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="submit"
+            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
+          >
+            Create Shelf
+          </button>
+        </form>
+      )}
+
+      {shelves.length === 0 ? (
+        <p className="text-gray-500 text-center py-12 bg-gray-50 rounded-lg">No shelves yet. Add your first shelf above.</p>
+      ) : (
+        <div className="space-y-4">
+          {shelves.map((shelf) => (
+            <div key={shelf.id} className="border-2 border-amber-200 rounded-xl p-5 bg-amber-50">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-bold text-lg text-amber-900">{shelf.name}</h3>
+                  <p className="text-sm text-amber-700">{shelf.sections.length} sections</p>
+                </div>
+                <div className="flex gap-2">
+                  <Link href={`/shelves/${shelf.id}`} className="text-sm text-indigo-600 hover:underline">
+                    View
+                  </Link>
+                  <button
+                    onClick={() => handleDeleteShelf(shelf.id)}
+                    className="text-sm text-red-600 hover:underline"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+
+              {shelf.sections.length > 0 && (
+                <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {shelf.sections.map((section) => (
+                    <div key={section.id} className="bg-white rounded-lg p-2 text-sm text-center border border-amber-200">
+                      <div className="font-medium">{section.label || section.category.name}</div>
+                      <div className="text-xs text-gray-500">{section.category.name}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
