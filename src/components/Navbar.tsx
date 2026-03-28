@@ -12,6 +12,7 @@ const navLinks = [
   { href: "/checkin", label: "↩️ Check In" },
   { href: "/admin/submissions", label: "📋 Submissions" },
   { href: "/admin/shelves", label: "🗄️ Shelves" },
+  { href: "/admin/shelves/layout", label: "📐 Room Layout" },
   { href: "/admin/teachers", label: "👩‍🏫 Teachers" },
 ];
 
