@@ -24,6 +24,8 @@ export async function GET(request: NextRequest) {
     where,
     include: {
       category: true,
+      qualifier: true,
+      bin: { include: { shelf: { select: { id: true, name: true } } } },
       checkouts: {
         where: { returnedAt: null },
         include: { teacher: true },
@@ -47,7 +49,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { isbn, title, author, coverImageUrl, totalCopies, categoryId } = body;
+    const { isbn, title, author, coverImageUrl, totalCopies, categoryId, qualifierId, binId } = body;
 
     if (!title || !author) {
       return NextResponse.json({ error: "Title and author are required" }, { status: 400 });
@@ -61,8 +63,10 @@ export async function POST(request: NextRequest) {
         coverImageUrl: coverImageUrl || null,
         totalCopies: totalCopies || 1,
         categoryId: categoryId || null,
+        qualifierId: qualifierId || null,
+        binId: binId || null,
       },
-      include: { category: true },
+      include: { category: true, qualifier: true, bin: true },
     });
 
     return NextResponse.json(book, { status: 201 });

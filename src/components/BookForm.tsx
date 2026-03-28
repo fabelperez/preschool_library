@@ -7,6 +7,17 @@ interface Category {
   name: string;
 }
 
+interface Qualifier {
+  id: string;
+  name: string;
+}
+
+interface BinOption {
+  id: string;
+  label: string;
+  shelfName: string;
+}
+
 interface BookFormProps {
   initialData?: {
     isbn?: string;
@@ -15,6 +26,8 @@ interface BookFormProps {
     coverImageUrl?: string | null;
     totalCopies: number;
     categoryId?: string | null;
+    qualifierId?: string | null;
+    binId?: string | null;
   };
   onSubmit: (data: {
     isbn: string;
@@ -23,6 +36,8 @@ interface BookFormProps {
     coverImageUrl: string;
     totalCopies: number;
     categoryId: string;
+    qualifierId: string;
+    binId: string;
   }) => Promise<void>;
   submitLabel?: string;
 }
@@ -34,39 +49,51 @@ export default function BookForm({ initialData, onSubmit, submitLabel = "Save Bo
   const [coverImageUrl, setCoverImageUrl] = useState(initialData?.coverImageUrl || "");
   const [totalCopies, setTotalCopies] = useState(initialData?.totalCopies || 1);
   const [categoryId, setCategoryId] = useState(initialData?.categoryId || "");
+  const [qualifierId, setQualifierId] = useState(initialData?.qualifierId || "");
+  const [binId, setBinId] = useState(initialData?.binId || "");
   const [categories, setCategories] = useState<Category[]>([]);
+  const [qualifiers, setQualifiers] = useState<Qualifier[]>([]);
+  const [bins, setBins] = useState<BinOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [newQualifierName, setNewQualifierName] = useState("");
+  const [showNewQualifier, setShowNewQualifier] = useState(false);
 
   useEffect(() => {
-    fetch("/api/shelves")
-      .then((r) => r.json())
-      .then((shelves) => {
-        // Extract unique categories from shelves
-        const cats = new Map<string, string>();
-        for (const shelf of shelves) {
-          for (const section of shelf.sections) {
-            if (section.category) {
-              cats.set(section.category.id, section.category.name);
-            }
-          }
-        }
-        // Also fetch any categories not assigned to shelves
-        return fetch("/api/books").then((r) => r.json()).then((books: { category?: { id: string; name: string } }[]) => {
-          for (const book of books) {
-            if (book.category) {
-              cats.set(book.category.id, book.category.name);
-            }
-          }
-          setCategories(
-            Array.from(cats.entries())
-              .map(([id, name]) => ({ id, name }))
-              .sort((a, b) => a.name.localeCompare(b.name))
-          );
-        });
-      })
-      .catch(console.error);
+    Promise.all([
+      fetch("/api/categories").then((r) => r.json()),
+      fetch("/api/qualifiers").then((r) => r.json()),
+      fetch("/api/bins").then((r) => r.json()),
+    ]).then(([cats, quals, binData]) => {
+      setCategories(cats);
+      setQualifiers(quals);
+      setBins(
+        binData.map((b: { id: string; label: string | null; number: number; shelf: { name: string } }) => ({
+          id: b.id,
+          label: `${b.shelf.name} → ${b.label || `Bin ${b.number}`}`,
+          shelfName: b.shelf.name,
+        }))
+      );
+    }).catch(console.error);
   }, []);
+
+  const handleCreateQualifier = async () => {
+    if (!newQualifierName.trim()) return;
+    try {
+      const res = await fetch("/api/qualifiers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newQualifierName.trim() }),
+      });
+      if (res.ok) {
+        const newQual = await res.json();
+        setQualifiers((prev) => [...prev, newQual].sort((a, b) => a.name.localeCompare(b.name)));
+        setQualifierId(newQual.id);
+        setNewQualifierName("");
+        setShowNewQualifier(false);
+      }
+    } catch { /* ignore */ }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,7 +101,7 @@ export default function BookForm({ initialData, onSubmit, submitLabel = "Save Bo
     setError(null);
 
     try {
-      await onSubmit({ isbn, title, author, coverImageUrl: coverImageUrl || "", totalCopies, categoryId });
+      await onSubmit({ isbn, title, author, coverImageUrl: coverImageUrl || "", totalCopies, categoryId, qualifierId, binId });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -160,6 +187,63 @@ export default function BookForm({ initialData, onSubmit, submitLabel = "Save Bo
           ))}
         </select>
       </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Qualifier</label>
+        <div className="flex gap-2">
+          <select
+            value={qualifierId}
+            onChange={(e) => setQualifierId(e.target.value)}
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">No qualifier</option>
+            {qualifiers.map((q) => (
+              <option key={q.id} value={q.id}>{q.name}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => setShowNewQualifier(!showNewQualifier)}
+            className="px-3 py-2 text-sm text-indigo-600 border border-indigo-300 rounded-lg hover:bg-indigo-50"
+          >
+            + New
+          </button>
+        </div>
+        {showNewQualifier && (
+          <div className="flex gap-2 mt-2">
+            <input
+              type="text"
+              value={newQualifierName}
+              onChange={(e) => setNewQualifierName(e.target.value)}
+              placeholder="New qualifier name..."
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <button
+              type="button"
+              onClick={handleCreateQualifier}
+              className="px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700"
+            >
+              Create
+            </button>
+          </div>
+        )}
+      </div>
+
+      {qualifiers.find((q) => q.id === qualifierId)?.name === "Teacher Resource" && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Bin (for Teacher Resource books)</label>
+          <select
+            value={binId}
+            onChange={(e) => setBinId(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">No bin</option>
+            {bins.map((b) => (
+              <option key={b.id} value={b.id}>{b.label}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <button
         type="submit"

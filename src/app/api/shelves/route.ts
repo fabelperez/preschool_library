@@ -18,6 +18,12 @@ export async function GET() {
         },
         orderBy: { position: "asc" },
       },
+      bins: {
+        include: {
+          _count: { select: { resources: true, books: true } },
+        },
+        orderBy: { number: "asc" },
+      },
     },
     orderBy: { position: "asc" },
   });
@@ -39,11 +45,12 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, position, sections } = body;
+    const { name, position, sections, type } = body;
 
     const shelf = await prisma.shelf.create({
       data: {
         name,
+        type: type || "book",
         position: position || 0,
         layoutX: body.layoutX ?? 5,
         layoutY: body.layoutY ?? 5,

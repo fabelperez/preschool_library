@@ -28,6 +28,7 @@ interface RoomFixture {
 interface Shelf {
   id: string;
   name: string;
+  type: string;
   position: number;
   layoutX: number;
   layoutY: number;
@@ -35,6 +36,7 @@ interface Shelf {
   layoutHeight: number;
   layoutRotation: number;
   sections: ShelfSection[];
+  bins: { id: string; number: number; label: string | null; _count: { resources: number; books: number } }[];
 }
 
 interface DetailBook {
@@ -101,7 +103,12 @@ function getShelfStyle(shelf: Shelf, index: number) {
   return layout;
 }
 
-function getAvailabilityColor(sections: ShelfSection[]) {
+function getAvailabilityColor(shelf: Shelf) {
+  if (shelf.type === "resource") {
+    return { bg: "bg-emerald-100", border: "border-emerald-500", text: "text-emerald-800" };
+  }
+
+  const sections = shelf.sections;
   const totalBooks = sections.reduce((sum, s) => sum + s.bookCount, 0);
   const totalAvailable = sections.reduce((sum, s) => sum + s.availableCount, 0);
 
@@ -179,10 +186,12 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
         {/* Shelves */}
         {shelves.map((shelf, index) => {
           const style = getShelfStyle(shelf, index);
-          const colors = getAvailabilityColor(shelf.sections);
+          const colors = getAvailabilityColor(shelf);
           const isSelected = selectedShelf?.id === shelf.id;
+          const isResource = shelf.type === "resource";
           const totalBooks = shelf.sections.reduce((sum, s) => sum + s.bookCount, 0);
           const totalAvailable = shelf.sections.reduce((sum, s) => sum + s.availableCount, 0);
+          const totalResources = shelf.bins?.reduce((sum, b) => sum + (b._count?.resources || 0), 0) || 0;
 
           return (
             <button
@@ -207,12 +216,15 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
                 {shelf.name}
               </span>
               <span className={`text-[10px] md:text-xs ${colors.text} opacity-75 mt-0.5`}>
-                {totalAvailable}/{totalBooks} available
+                {isResource
+                  ? `${shelf.bins?.length || 0} bins · ${totalResources} items`
+                  : `${totalAvailable}/${totalBooks} available`
+                }
               </span>
 
               {/* Hover tooltip */}
               <div className="hidden group-hover:block absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
-                Click to view books
+                {isResource ? "Click to view resources" : "Click to view books"}
               </div>
             </button>
           );
@@ -220,7 +232,7 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
       </div>
 
       {/* Legend */}
-      <div className="flex justify-center gap-4 text-xs text-gray-500">
+      <div className="flex justify-center gap-4 text-xs text-gray-500 flex-wrap">
         <div className="flex items-center gap-1">
           <div className="w-3 h-3 bg-green-100 border border-green-500 rounded" />
           All available
@@ -233,17 +245,21 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
           <div className="w-3 h-3 bg-red-100 border border-red-500 rounded" />
           All checked out
         </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 bg-emerald-100 border border-emerald-500 rounded" />
+          Resource shelf
+        </div>
       </div>
 
       {/* Detail panel */}
       {selectedShelf && (
-        <div className="border-2 border-indigo-200 rounded-xl bg-white shadow-lg overflow-hidden animate-in">
-          <div className="bg-indigo-600 text-white px-5 py-3 flex justify-between items-center">
-            <h3 className="font-bold text-lg">🗄️ {selectedShelf.name}</h3>
+        <div className={`border-2 ${selectedShelf.type === "resource" ? "border-emerald-200" : "border-indigo-200"} rounded-xl bg-white shadow-lg overflow-hidden animate-in`}>
+          <div className={`${selectedShelf.type === "resource" ? "bg-emerald-600" : "bg-indigo-600"} text-white px-5 py-3 flex justify-between items-center`}>
+            <h3 className="font-bold text-lg">{selectedShelf.type === "resource" ? "📦" : "🗄️"} {selectedShelf.name}</h3>
             <div className="flex items-center gap-3">
               <Link
-                href={`/shelves/${selectedShelf.id}`}
-                className="text-sm text-indigo-200 hover:text-white underline"
+                href={selectedShelf.type === "resource" ? `/resources?shelfId=${selectedShelf.id}` : `/shelves/${selectedShelf.id}`}
+                className={`text-sm ${selectedShelf.type === "resource" ? "text-emerald-200 hover:text-white" : "text-indigo-200 hover:text-white"} underline`}
               >
                 Full page →
               </Link>
@@ -258,6 +274,36 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
 
           {detailLoading ? (
             <div className="p-8 text-center text-gray-500">Loading shelf details...</div>
+          ) : selectedShelf.type === "resource" ? (
+            <div className="divide-y">
+              {selectedShelf.bins && selectedShelf.bins.length > 0 ? (
+                selectedShelf.bins.map((bin) => (
+                  <div key={bin.id} className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="font-semibold text-gray-800">
+                        📥 {bin.label || `Bin ${bin.number}`}
+                      </span>
+                      <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+                        {bin._count.resources} resources
+                      </span>
+                      {bin._count.books > 0 && (
+                        <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+                          {bin._count.books} books
+                        </span>
+                      )}
+                    </div>
+                    <Link
+                      href={`/resources?binId=${bin.id}`}
+                      className="text-sm text-emerald-600 hover:underline"
+                    >
+                      View resources →
+                    </Link>
+                  </div>
+                ))
+              ) : (
+                <div className="p-4 text-sm text-gray-400 italic">No bins on this shelf yet</div>
+              )}
+            </div>
           ) : shelfDetail ? (
             <div className="divide-y">
               {shelfDetail.sections.map((section) => (

@@ -334,7 +334,6 @@ export default function ShelfLayoutEditorPage() {
                 const pct = pxToPct(position.x, position.y, ref.offsetWidth, ref.offsetHeight);
                 updateFixture(fixture.id, pct);
               }}
-              style={{ transform: fixture.layoutRotation ? `rotate(${fixture.layoutRotation}deg)` : undefined }}
               className={`z-[5] ${isSelected ? "z-20" : ""}`}
             >
               <div
@@ -342,6 +341,7 @@ export default function ShelfLayoutEditorPage() {
                   e.stopPropagation();
                   setSelected(isSelected ? null : { kind: "fixture", id: fixture.id });
                 }}
+                style={{ transform: fixture.layoutRotation ? `rotate(${fixture.layoutRotation}deg)` : undefined }}
                 className={`w-full h-full flex items-center justify-center cursor-move transition-all
                   ${isRound ? "rounded-full" : "rounded-lg"}
                   ${fixture.bgColor}
@@ -385,7 +385,6 @@ export default function ShelfLayoutEditorPage() {
                 const pct = pxToPct(position.x, position.y, ref.offsetWidth, ref.offsetHeight);
                 updateShelf(shelf.id, pct);
               }}
-              style={{ transform: shelf.layoutRotation ? `rotate(${shelf.layoutRotation}deg)` : undefined }}
               className={`z-10 ${isSelected ? "z-20" : ""}`}
             >
               <div
@@ -393,6 +392,7 @@ export default function ShelfLayoutEditorPage() {
                   e.stopPropagation();
                   setSelected(isSelected ? null : { kind: "shelf", id: shelf.id });
                 }}
+                style={{ transform: shelf.layoutRotation ? `rotate(${shelf.layoutRotation}deg)` : undefined }}
                 className={`w-full h-full rounded-lg border-2 flex flex-col items-center justify-center cursor-move transition-colors
                   ${isSelected
                     ? "bg-indigo-100 border-indigo-500 ring-2 ring-indigo-300 shadow-lg"
@@ -456,7 +456,7 @@ export default function ShelfLayoutEditorPage() {
       <div className="space-y-2">
         <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">Shelves</h3>
         {shelves.length === 0 ? (
-          <p className="text-sm text-gray-400 italic">No shelves yet — use "+ Add Item" above.</p>
+          <p className="text-sm text-gray-400 italic">No shelves yet — use &ldquo;+ Add Item&rdquo; above.</p>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
             {shelves.map((shelf) => (
@@ -480,7 +480,7 @@ export default function ShelfLayoutEditorPage() {
 
         <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider mt-4">Room Fixtures</h3>
         {fixtures.length === 0 ? (
-          <p className="text-sm text-gray-400 italic">No fixtures yet — use "+ Add Item" above.</p>
+          <p className="text-sm text-gray-400 italic">No fixtures yet — use &ldquo;+ Add Item&rdquo; above.</p>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
             {fixtures.map((fixture) => (

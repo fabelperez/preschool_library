@@ -92,6 +92,69 @@ async function main() {
     ],
   });
 
+  // Create default qualifiers
+  const qualGeneral = await prisma.qualifier.upsert({
+    where: { name: "General" },
+    update: {},
+    create: { name: "General" },
+  });
+  const qualTeacherResource = await prisma.qualifier.upsert({
+    where: { name: "Teacher Resource" },
+    update: {},
+    create: { name: "Teacher Resource" },
+  });
+
+  // Create resource categories (themes)
+  const resourceCategories = await Promise.all(
+    [
+      { name: "Fall", description: "Fall-themed teaching resources" },
+      { name: "Winter", description: "Winter-themed teaching resources" },
+      { name: "Spring", description: "Spring-themed teaching resources" },
+      { name: "Summer", description: "Summer-themed teaching resources" },
+      { name: "STEM", description: "Science, Technology, Engineering, and Math resources" },
+    ].map((rc) =>
+      prisma.resourceCategory.upsert({
+        where: { name: rc.name },
+        update: {},
+        create: rc,
+      })
+    )
+  );
+
+  // Create a resource shelf with bins
+  const resourceShelf = await prisma.shelf.create({
+    data: {
+      name: "Resource Shelf D",
+      type: "resource",
+      position: 4,
+      layoutX: 65,
+      layoutY: 65,
+      layoutWidth: 30,
+      layoutHeight: 14,
+    },
+  });
+
+  const bins = await Promise.all(
+    [
+      { number: 1, label: "Bin 1", shelfId: resourceShelf.id },
+      { number: 2, label: "Bin 2", shelfId: resourceShelf.id },
+      { number: 3, label: "Bin 3", shelfId: resourceShelf.id },
+    ].map((b) => prisma.bin.create({ data: b }))
+  );
+
+  const rcMap = Object.fromEntries(resourceCategories.map((rc) => [rc.name, rc.id]));
+
+  // Create sample resources
+  await prisma.resource.createMany({
+    data: [
+      { name: "Leaf Sorting Kit", description: "Assorted leaf shapes for sorting activities", quantity: 5, resourceCategoryId: rcMap["Fall"], binId: bins[0].id },
+      { name: "Pumpkin Counting Set", description: "Mini pumpkins for counting exercises", quantity: 10, resourceCategoryId: rcMap["Fall"], binId: bins[0].id },
+      { name: "Snowflake Stencils", description: "Stencils for winter art projects", quantity: 8, resourceCategoryId: rcMap["Winter"], binId: bins[1].id },
+      { name: "Magnet Exploration Kit", description: "Magnets and metal objects for STEM activities", quantity: 3, resourceCategoryId: rcMap["STEM"], binId: bins[2].id },
+      { name: "Seed Growing Kit", description: "Seeds and pots for spring planting", quantity: 6, resourceCategoryId: rcMap["Spring"], binId: bins[2].id },
+    ],
+  });
+
   console.log("Seed data created successfully!");
 }
 

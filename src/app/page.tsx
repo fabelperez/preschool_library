@@ -16,6 +16,7 @@ interface ShelfSection {
 interface Shelf {
   id: string;
   name: string;
+  type: string;
   position: number;
   layoutX: number;
   layoutY: number;
@@ -23,6 +24,7 @@ interface Shelf {
   layoutHeight: number;
   layoutRotation: number;
   sections: ShelfSection[];
+  bins: { id: string; number: number; label: string | null; _count: { resources: number; books: number } }[];
 }
 
 export default function Home() {

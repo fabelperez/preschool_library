@@ -7,11 +7,13 @@ import { useState, useEffect } from "react";
 const navLinks = [
   { href: "/", label: "📚 Library" },
   { href: "/books", label: "📖 Books" },
+  { href: "/resources", label: "📦 Resources" },
   { href: "/books/submit", label: "📥 Submit Book" },
   { href: "/checkout", label: "✅ Check Out" },
   { href: "/checkin", label: "↩️ Check In" },
   { href: "/admin/submissions", label: "📋 Submissions" },
   { href: "/admin/shelves", label: "🗄️ Shelves" },
+  { href: "/admin/resources", label: "📦 Resources" },
   { href: "/admin/shelves/layout", label: "📐 Room Layout" },
   { href: "/admin/teachers", label: "👩‍🏫 Teachers" },
 ];

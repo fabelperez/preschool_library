@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchBar from "@/components/SearchBar";
 import BookCard from "@/components/BookCard";
@@ -18,23 +18,49 @@ interface Book {
   checkedOutBy: { teacherName: string; checkedOutAt: string }[];
 }
 
+interface Category {
+  id: string;
+  name: string;
+}
+
 function BooksContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const query = searchParams.get("q") || "";
+  const categoryId = searchParams.get("categoryId") || "";
   const [books, setBooks] = useState<Book[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/categories")
+      .then((r) => r.json())
+      .then(setCategories)
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams();
     if (query) params.set("q", query);
+    if (categoryId) params.set("categoryId", categoryId);
 
     fetch(`/api/books?${params.toString()}`)
       .then((r) => r.json())
       .then(setBooks)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [query]);
+  }, [query, categoryId]);
+
+  const handleCategoryChange = (newCategoryId: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (newCategoryId) {
+      params.set("categoryId", newCategoryId);
+    } else {
+      params.delete("categoryId");
+    }
+    router.push(`/books?${params.toString()}`);
+  };
 
   return (
     <div className="space-y-6">
@@ -48,11 +74,30 @@ function BooksContent() {
         </Link>
       </div>
 
-      <SearchBar />
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1">
+          <SearchBar />
+        </div>
+        <select
+          value={categoryId}
+          onChange={(e) => handleCategoryChange(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+        >
+          <option value="">All Categories</option>
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>
+              {cat.name}
+            </option>
+          ))}
+        </select>
+      </div>
 
-      {query && (
+      {(query || categoryId) && (
         <p className="text-sm text-gray-500">
-          Showing results for &ldquo;{query}&rdquo; ({books.length} found)
+          {query && <>Showing results for &ldquo;{query}&rdquo;</>}
+          {query && categoryId && " in "}
+          {categoryId && <>{categories.find(c => c.id === categoryId)?.name || "selected category"}</>}
+          {" "}({books.length} found)
         </p>
       )}
 

@@ -16,12 +16,13 @@ model User {
 }
 
 model Teacher {
-  id              String           @id @default(cuid())
-  name            String
-  email           String?
-  createdAt       DateTime         @default(now())
-  checkouts       Checkout[]
-  bookSubmissions BookSubmission[]
+  id                 String             @id @default(cuid())
+  name               String
+  email              String?
+  createdAt          DateTime           @default(now())
+  checkouts          Checkout[]
+  bookSubmissions    BookSubmission[]
+  resourceCheckouts  ResourceCheckout[]
 }
 
 model Category {
@@ -35,6 +36,7 @@ model Category {
 model Shelf {
   id             String         @id @default(cuid())
   name           String
+  type           String         @default("book") // "book" or "resource"
   position       Int            @default(0)
   layoutX        Float          @default(0)
   layoutY        Float          @default(0)
@@ -42,6 +44,7 @@ model Shelf {
   layoutHeight   Float          @default(14)
   layoutRotation Float          @default(0)
   sections       ShelfSection[]
+  bins           Bin[]
 }
 
 model ShelfSection {
@@ -56,6 +59,12 @@ model ShelfSection {
   @@unique([shelfId, categoryId])
 }
 
+model Qualifier {
+  id    String @id @default(cuid())
+  name  String @unique
+  books Book[]
+}
+
 model Book {
   id            String     @id @default(cuid())
   isbn          String?    @unique
@@ -65,9 +74,63 @@ model Book {
   totalCopies   Int        @default(1)
   categoryId    String?
   category      Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  qualifierId   String?
+  qualifier     Qualifier? @relation(fields: [qualifierId], references: [id], onDelete: SetNull)
+  binId         String?
+  bin           Bin?       @relation(fields: [binId], references: [id], onDelete: SetNull)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   checkouts     Checkout[]
+}
+
+model ResourceCategory {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  resources   Resource[]
+}
+
+model Bin {
+  id        String     @id @default(cuid())
+  number    Int
+  label     String?
+  shelfId   String
+  shelf     Shelf      @relation(fields: [shelfId], references: [id], onDelete: Cascade)
+  resources Resource[]
+  books     Book[]
+
+  @@unique([shelfId, number])
+  @@index([shelfId])
+}
+
+model Resource {
+  id                 String             @id @default(cuid())
+  name               String
+  description        String?
+  quantity           Int                @default(1)
+  resourceCategoryId String
+  resourceCategory   ResourceCategory   @relation(fields: [resourceCategoryId], references: [id])
+  binId              String
+  bin                Bin                @relation(fields: [binId], references: [id], onDelete: Cascade)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  checkouts          ResourceCheckout[]
+
+  @@index([binId])
+  @@index([resourceCategoryId])
+}
+
+model ResourceCheckout {
+  id           String    @id @default(cuid())
+  resourceId   String
+  teacherId    String
+  checkedOutAt DateTime  @default(now())
+  returnedAt   DateTime?
+  resource     Resource  @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  teacher      Teacher   @relation(fields: [teacherId], references: [id])
+
+  @@index([resourceId])
+  @@index([teacherId])
 }
 
 model Checkout {

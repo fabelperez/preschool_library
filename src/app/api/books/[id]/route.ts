@@ -6,6 +6,8 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
     where: { id: params.id },
     include: {
       category: true,
+      qualifier: true,
+      bin: { include: { shelf: { select: { id: true, name: true } } } },
       checkouts: {
         include: { teacher: true },
         orderBy: { checkedOutAt: "desc" },
@@ -25,7 +27,7 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const body = await request.json();
-    const { title, author, isbn, coverImageUrl, totalCopies, categoryId } = body;
+    const { title, author, isbn, coverImageUrl, totalCopies, categoryId, qualifierId, binId } = body;
 
     const book = await prisma.book.update({
       where: { id: params.id },
@@ -36,8 +38,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         coverImageUrl: coverImageUrl || null,
         totalCopies,
         categoryId: categoryId || null,
+        qualifierId: qualifierId || null,
+        binId: binId || null,
       },
-      include: { category: true },
+      include: { category: true, qualifier: true, bin: true },
     });
 
     return NextResponse.json(book);
