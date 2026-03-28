@@ -83,6 +83,15 @@ async function main() {
     ],
   });
 
+  // Create room fixtures (door, window, reading area)
+  await prisma.roomFixture.createMany({
+    data: [
+      { type: "door", label: "Door", emoji: "🚪", layoutX: 44, layoutY: 82, layoutWidth: 12, layoutHeight: 18, borderStyle: "solid", bgColor: "bg-amber-700/30", position: 1 },
+      { type: "window", label: "Window", emoji: "🪟", layoutX: 41, layoutY: 25, layoutWidth: 18, layoutHeight: 15, borderStyle: "solid", bgColor: "bg-sky-200/50", position: 2 },
+      { type: "rug", label: "Reading Area", emoji: "📖", layoutX: 32, layoutY: 45, layoutWidth: 36, layoutHeight: 22, borderStyle: "dashed", bgColor: "bg-indigo-100/50", position: 3 },
+    ],
+  });
+
   console.log("Seed data created successfully!");
 }
 

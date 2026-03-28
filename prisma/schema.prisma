@@ -101,3 +101,18 @@ model BookSubmission {
   @@index([status])
   @@index([teacherId])
 }
+
+model RoomFixture {
+  id             String @id @default(cuid())
+  type           String @default("custom") // "door", "window", "rug", "custom"
+  label          String
+  emoji          String @default("📦")
+  layoutX        Float  @default(10)
+  layoutY        Float  @default(10)
+  layoutWidth    Float  @default(15)
+  layoutHeight   Float  @default(15)
+  layoutRotation Float  @default(0)
+  borderStyle    String @default("solid") // "solid", "dashed", "none"
+  bgColor        String @default("bg-gray-100/50")
+  position       Int    @default(0)
+}

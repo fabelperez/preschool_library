@@ -11,6 +11,20 @@ interface ShelfSection {
   availableCount: number;
 }
 
+interface RoomFixture {
+  id: string;
+  type: string;
+  label: string;
+  emoji: string;
+  layoutX: number;
+  layoutY: number;
+  layoutWidth: number;
+  layoutHeight: number;
+  layoutRotation: number;
+  borderStyle: string;
+  bgColor: string;
+}
+
 interface Shelf {
   id: string;
   name: string;
@@ -101,6 +115,14 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
   const [selectedShelf, setSelectedShelf] = useState<Shelf | null>(null);
   const [shelfDetail, setShelfDetail] = useState<ShelfDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [fixtures, setFixtures] = useState<RoomFixture[]>([]);
+
+  useEffect(() => {
+    fetch("/api/room-fixtures")
+      .then((r) => r.json())
+      .then(setFixtures)
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
     if (!selectedShelf) {
@@ -127,20 +149,32 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
           Library Room
         </div>
 
-        {/* Door */}
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[12%] h-[18%] bg-amber-700/30 border-2 border-amber-900/40 rounded-t-lg flex items-center justify-center">
-          <span className="text-xs text-amber-900/60">🚪</span>
-        </div>
-
-        {/* Window */}
-        <div className="absolute top-[25%] left-1/2 -translate-x-1/2 w-[18%] h-[15%] bg-sky-200/50 border-2 border-sky-300 rounded-lg flex items-center justify-center">
-          <span className="text-lg">🪟</span>
-        </div>
-
-        {/* Reading area rug */}
-        <div className="absolute top-[45%] left-[32%] w-[36%] h-[22%] bg-indigo-100/50 border-2 border-dashed border-indigo-200 rounded-full flex items-center justify-center">
-          <span className="text-xs text-indigo-400">📖 Reading Area</span>
-        </div>
+        {/* Room fixtures from database */}
+        {fixtures.map((fixture) => {
+          const isRound = fixture.type === "rug";
+          return (
+            <div
+              key={fixture.id}
+              className={`absolute flex items-center justify-center pointer-events-none
+                ${isRound ? "rounded-full" : "rounded-lg"}
+                ${fixture.bgColor}
+                border-2 ${fixture.borderStyle === "dashed" ? "border-dashed" : "border-solid"}
+                border-gray-300/60`}
+              style={{
+                top: `${fixture.layoutY}%`,
+                left: `${fixture.layoutX}%`,
+                width: `${fixture.layoutWidth}%`,
+                height: `${fixture.layoutHeight}%`,
+                transform: fixture.layoutRotation ? `rotate(${fixture.layoutRotation}deg)` : undefined,
+              }}
+            >
+              <div className="text-center">
+                <span className="text-lg">{fixture.emoji}</span>
+                <div className="text-[9px] text-gray-500 leading-tight">{fixture.label}</div>
+              </div>
+            </div>
+          );
+        })}
 
         {/* Shelves */}
         {shelves.map((shelf, index) => {
