@@ -67,6 +67,8 @@ export default function BookForm({ initialData, onSubmit, submitLabel = "Save Bo
   const [resources, setResources] = useState<ResourceOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [showNewCategory, setShowNewCategory] = useState(false);
   const [newQualifierName, setNewQualifierName] = useState("");
   const [showNewQualifier, setShowNewQualifier] = useState(false);
 
@@ -96,6 +98,24 @@ export default function BookForm({ initialData, onSubmit, submitLabel = "Save Bo
       );
     }).catch(console.error);
   }, []);
+
+  const handleCreateCategory = async () => {
+    if (!newCategoryName.trim()) return;
+    try {
+      const res = await fetch("/api/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newCategoryName.trim() }),
+      });
+      if (res.ok) {
+        const newCat = await res.json();
+        setCategories((prev) => [...prev, newCat].sort((a, b) => a.name.localeCompare(b.name)));
+        setCategoryId(newCat.id);
+        setNewCategoryName("");
+        setShowNewCategory(false);
+      }
+    } catch { /* ignore */ }
+  };
 
   const handleCreateQualifier = async () => {
     if (!newQualifierName.trim()) return;
@@ -194,18 +214,45 @@ export default function BookForm({ initialData, onSubmit, submitLabel = "Save Bo
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-        <select
-          value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          <option value="">No category</option>
-          {categories.map((cat) => (
-            <option key={cat.id} value={cat.id}>
-              {cat.name}
-            </option>
-          ))}
-        </select>
+        <div className="flex gap-2">
+          <select
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="">No category</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => setShowNewCategory(!showNewCategory)}
+            className="px-3 py-2 text-sm text-indigo-600 border border-indigo-300 rounded-lg hover:bg-indigo-50"
+          >
+            + New
+          </button>
+        </div>
+        {showNewCategory && (
+          <div className="flex gap-2 mt-2">
+            <input
+              type="text"
+              value={newCategoryName}
+              onChange={(e) => setNewCategoryName(e.target.value)}
+              placeholder="New category name..."
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <button
+              type="button"
+              onClick={handleCreateCategory}
+              className="px-3 py-2 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700"
+            >
+              Create
+            </button>
+          </div>
+        )}
       </div>
 
       <div>
