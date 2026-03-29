@@ -6,6 +6,7 @@ import Link from "next/link";
 interface Category {
   id: string;
   name: string;
+  _count?: { books: number };
 }
 
 interface ShelfSection {
@@ -29,24 +30,19 @@ export default function ManageShelvesPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newShelfName, setNewShelfName] = useState("");
   const [newShelfSections, setNewShelfSections] = useState<{ categoryId: string; label: string }[]>([]);
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const fetchData = async () => {
     try {
-      const shelvesRes = await fetch("/api/shelves");
+      const [shelvesRes, catsRes] = await Promise.all([
+        fetch("/api/shelves"),
+        fetch("/api/categories"),
+      ]);
       const shelvesData = await shelvesRes.json();
+      const catsData = await catsRes.json();
       setShelves(shelvesData);
-
-      // Extract categories
-      const cats = new Map<string, string>();
-      for (const shelf of shelvesData) {
-        for (const section of shelf.sections) {
-          if (section.category) {
-            cats.set(section.category.id, section.category.name);
-          }
-        }
-      }
-      setCategories(Array.from(cats.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)));
+      setCategories(catsData);
     } catch (err) {
       console.error(err);
     } finally {
@@ -108,6 +104,44 @@ export default function ManageShelvesPage() {
     await fetch(`/api/shelves/${shelfId}`, { method: "DELETE" });
     fetchData();
     setMessage({ type: "success", text: "Shelf deleted" });
+  };
+
+  const handleAddCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage(null);
+    try {
+      const res = await fetch("/api/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newCategoryName }),
+      });
+      if (res.ok) {
+        setNewCategoryName("");
+        setMessage({ type: "success", text: "Category added!" });
+        fetchData();
+      } else {
+        const err = await res.json();
+        setMessage({ type: "error", text: err.error || "Failed to add category" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Something went wrong" });
+    }
+  };
+
+  const handleDeleteCategory = async (catId: string) => {
+    if (!confirm("Delete this category? Books in this category will become uncategorized.")) return;
+    try {
+      const res = await fetch(`/api/categories/${catId}`, { method: "DELETE" });
+      if (res.ok) {
+        setMessage({ type: "success", text: "Category deleted" });
+        fetchData();
+      } else {
+        const err = await res.json();
+        setMessage({ type: "error", text: err.error || "Failed to delete category" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Something went wrong" });
+    }
   };
 
   if (loading) return <div className="text-center py-12 text-gray-500">Loading...</div>;
@@ -232,6 +266,40 @@ export default function ManageShelvesPage() {
           ))}
         </div>
       )}
+
+      {/* Book Categories Management */}
+      <section className="bg-white border rounded-xl p-5 space-y-4">
+        <h2 className="font-semibold text-lg text-gray-800">📂 Book Categories</h2>
+        {categories.length > 0 && (
+          <div className="flex gap-2 flex-wrap">
+            {categories.map((cat) => (
+              <div key={cat.id} className="flex items-center gap-1 px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm">
+                {cat.name} {cat._count ? `(${cat._count.books})` : ""}
+                <button
+                  onClick={() => handleDeleteCategory(cat.id)}
+                  className="ml-1 text-indigo-400 hover:text-red-600 text-xs"
+                  title="Delete category"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <form onSubmit={handleAddCategory} className="flex gap-2">
+          <input
+            type="text"
+            value={newCategoryName}
+            onChange={(e) => setNewCategoryName(e.target.value)}
+            placeholder="New category name (e.g., Animals, Weather)..."
+            required
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+          />
+          <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm">
+            + Add Category
+          </button>
+        </form>
+      </section>
     </div>
   );
 }

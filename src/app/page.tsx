@@ -25,6 +25,8 @@ interface Shelf {
   layoutRotation: number;
   sections: ShelfSection[];
   bins: { id: string; number: number; label: string | null; _count: { resources: number; books: number } }[];
+  resourceCount: number;
+  availableResourceCount: number;
 }
 
 export default function Home() {

@@ -141,13 +141,19 @@ export default function ShelfLayoutEditorPage() {
     }
   };
 
-  const handleAddShelf = async () => {
+  const handleAddShelf = async (type: "book" | "resource" = "book") => {
     try {
+      const prefix = type === "resource" ? "Resource Shelf" : "Shelf";
+      const shelvesOfType = shelves.filter((s) => s.name.startsWith(prefix));
+      const name = type === "resource"
+        ? `Resource Shelf ${String.fromCharCode(65 + shelvesOfType.length)}`
+        : `Shelf ${String.fromCharCode(65 + shelvesOfType.length)}`;
       const res = await fetch("/api/shelves", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: `Shelf ${String.fromCharCode(65 + shelves.length)}`,
+          name,
+          type,
           position: shelves.length + 1,
           layoutX: 10, layoutY: 10, layoutWidth: 25, layoutHeight: 14,
         }),
@@ -245,11 +251,18 @@ export default function ShelfLayoutEditorPage() {
             </button>
             {showAddMenu && (
               <div className="absolute right-0 top-full mt-1 bg-white border rounded-xl shadow-lg z-30 w-56 overflow-hidden">
+                <div className="px-3 py-2 text-xs text-gray-400 uppercase tracking-wider">Shelves</div>
                 <button
-                  onClick={handleAddShelf}
-                  className="w-full text-left px-4 py-3 hover:bg-indigo-50 text-sm font-medium text-indigo-700 border-b"
+                  onClick={() => handleAddShelf("book")}
+                  className="w-full text-left px-4 py-2 hover:bg-indigo-50 text-sm font-medium text-indigo-700"
                 >
-                  🗄️ New Shelf
+                  📚 Book Shelf
+                </button>
+                <button
+                  onClick={() => handleAddShelf("resource")}
+                  className="w-full text-left px-4 py-2 hover:bg-emerald-50 text-sm font-medium text-emerald-700 border-b"
+                >
+                  📦 Resource Shelf
                 </button>
                 <div className="px-3 py-2 text-xs text-gray-400 uppercase tracking-wider">Room Fixtures</div>
                 {FIXTURE_PRESETS.map((preset, i) => (

@@ -37,6 +37,8 @@ interface Shelf {
   layoutRotation: number;
   sections: ShelfSection[];
   bins: { id: string; number: number; label: string | null; _count: { resources: number; books: number } }[];
+  resourceCount: number;
+  availableResourceCount: number;
 }
 
 interface DetailBook {
@@ -105,7 +107,12 @@ function getShelfStyle(shelf: Shelf, index: number) {
 
 function getAvailabilityColor(shelf: Shelf) {
   if (shelf.type === "resource") {
-    return { bg: "bg-emerald-100", border: "border-emerald-500", text: "text-emerald-800" };
+    const total = shelf.resourceCount || 0;
+    const available = shelf.availableResourceCount || 0;
+    if (total === 0) return { bg: "bg-gray-200", border: "border-gray-400", text: "text-gray-600" };
+    if (available === total) return { bg: "bg-green-100", border: "border-green-500", text: "text-green-800" };
+    if (available === 0) return { bg: "bg-red-100", border: "border-red-500", text: "text-red-800" };
+    return { bg: "bg-amber-100", border: "border-amber-500", text: "text-amber-800" };
   }
 
   const sections = shelf.sections;
@@ -191,7 +198,6 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
           const isResource = shelf.type === "resource";
           const totalBooks = shelf.sections.reduce((sum, s) => sum + s.bookCount, 0);
           const totalAvailable = shelf.sections.reduce((sum, s) => sum + s.availableCount, 0);
-          const totalResources = shelf.bins?.reduce((sum, b) => sum + (b._count?.resources || 0), 0) || 0;
 
           return (
             <button
@@ -217,7 +223,7 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
               </span>
               <span className={`text-[10px] md:text-xs ${colors.text} opacity-75 mt-0.5`}>
                 {isResource
-                  ? `${shelf.bins?.length || 0} bins · ${totalResources} items`
+                  ? `${shelf.availableResourceCount ?? 0}/${shelf.resourceCount ?? 0} available`
                   : `${totalAvailable}/${totalBooks} available`
                 }
               </span>
@@ -246,8 +252,8 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
           All checked out
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-3 h-3 bg-emerald-100 border border-emerald-500 rounded" />
-          Resource shelf
+          <div className="w-3 h-3 bg-gray-200 border border-gray-400 rounded" />
+          Empty
         </div>
       </div>
 

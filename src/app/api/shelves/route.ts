@@ -21,6 +21,12 @@ export async function GET() {
       bins: {
         include: {
           _count: { select: { resources: true, books: true } },
+          resources: {
+            select: {
+              quantity: true,
+              checkouts: { where: { returnedAt: null }, select: { id: true } },
+            },
+          },
         },
         orderBy: { number: "asc" },
       },
@@ -28,16 +34,33 @@ export async function GET() {
     orderBy: { position: "asc" },
   });
 
-  const shelvesWithCounts = shelves.map((shelf) => ({
-    ...shelf,
-    sections: shelf.sections.map((section) => ({
-      ...section,
-      bookCount: section.category.books.length,
-      availableCount: section.category.books.filter(
-        (b) => b.totalCopies - b.checkouts.length > 0
-      ).length,
-    })),
-  }));
+  const shelvesWithCounts = shelves.map((shelf) => {
+    const totalResourceQuantity = shelf.bins.reduce(
+      (sum, bin) => sum + bin.resources.reduce((s, r) => s + r.quantity, 0), 0
+    );
+    const checkedOutResourceCount = shelf.bins.reduce(
+      (sum, bin) => sum + bin.resources.reduce((s, r) => s + r.checkouts.length, 0), 0
+    );
+
+    return {
+      ...shelf,
+      sections: shelf.sections.map((section) => ({
+        ...section,
+        bookCount: section.category.books.length,
+        availableCount: section.category.books.filter(
+          (b) => b.totalCopies - b.checkouts.length > 0
+        ).length,
+      })),
+      bins: shelf.bins.map((bin) => ({
+        id: bin.id,
+        number: bin.number,
+        label: bin.label,
+        _count: bin._count,
+      })),
+      resourceCount: totalResourceQuantity,
+      availableResourceCount: totalResourceQuantity - checkedOutResourceCount,
+    };
+  });
 
   return NextResponse.json(shelvesWithCounts);
 }
