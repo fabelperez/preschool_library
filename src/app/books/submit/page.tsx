@@ -27,6 +27,17 @@ export default function SubmitBookPage() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Title search state
+  const [titleQuery, setTitleQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{
+    title: string;
+    author: string;
+    coverImageUrl: string | null;
+    isbn: string | null;
+    firstPublishYear: number | null;
+  }[]>([]);
+  const [searching, setSearching] = useState(false);
+
   useEffect(() => {
     fetch("/api/teachers")
       .then((r) => r.json())
@@ -52,6 +63,40 @@ export default function SubmitBookPage() {
       setLookupLoading(false);
       setScanned(true);
     }
+  };
+
+  const handleTitleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!titleQuery.trim()) return;
+    setSearching(true);
+    setSearchResults([]);
+
+    try {
+      const res = await fetch(`/api/books/lookup?q=${encodeURIComponent(titleQuery.trim())}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSearchResults(data);
+      }
+    } catch {
+      // Search failed silently
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleSelectResult = (result: {
+    title: string;
+    author: string;
+    coverImageUrl: string | null;
+    isbn: string | null;
+  }) => {
+    setTitle(result.title);
+    setAuthor(result.author);
+    setCoverImageUrl(result.coverImageUrl || "");
+    setIsbn(result.isbn || "");
+    setSearchResults([]);
+    setTitleQuery("");
+    setScanned(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -156,18 +201,95 @@ export default function SubmitBookPage() {
 
           {/* Step 2: Scan or enter book */}
           {selectedTeacherId && !scanned && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
-              <h2 className="font-semibold text-blue-800 mb-3">Step 2: Scan or Enter Book Info</h2>
-              <BarcodeScanner onScan={handleScan} />
-              {lookupLoading && (
-                <p className="text-sm text-blue-600 mt-3">Looking up book...</p>
-              )}
-              <div className="mt-4 pt-4 border-t border-blue-200">
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 space-y-4">
+              <h2 className="font-semibold text-blue-800 mb-3">Step 2: Find Your Book</h2>
+
+              {/* Title search */}
+              <div>
+                <h3 className="text-sm font-medium text-blue-700 mb-2">🔍 Search by title or author</h3>
+                <form onSubmit={handleTitleSearch} className="flex gap-2">
+                  <input
+                    type="text"
+                    value={titleQuery}
+                    onChange={(e) => setTitleQuery(e.target.value)}
+                    placeholder="e.g., The Very Hungry Caterpillar"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={searching || !titleQuery.trim()}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50"
+                  >
+                    {searching ? "Searching..." : "Search"}
+                  </button>
+                </form>
+
+                {/* Search results */}
+                {searching && (
+                  <p className="text-sm text-blue-600 mt-2">Searching Open Library...</p>
+                )}
+                {searchResults.length > 0 && (
+                  <div className="mt-3 space-y-2 max-h-80 overflow-y-auto">
+                    <p className="text-xs text-gray-500">{searchResults.length} result{searchResults.length !== 1 ? "s" : ""} — tap to select</p>
+                    {searchResults.map((result, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => handleSelectResult(result)}
+                        className="w-full text-left p-3 bg-white border border-gray-200 rounded-lg hover:border-blue-400 hover:shadow-sm transition-all flex gap-3"
+                      >
+                        <div className="w-10 h-14 bg-gray-100 rounded flex items-center justify-center text-lg shrink-0 overflow-hidden">
+                          {result.coverImageUrl ? (
+                            <img src={result.coverImageUrl} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            "📕"
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-gray-900 text-sm truncate">{result.title}</p>
+                          <p className="text-xs text-gray-500">{result.author}</p>
+                          <div className="flex gap-2 mt-0.5">
+                            {result.firstPublishYear && (
+                              <span className="text-xs text-gray-400">{result.firstPublishYear}</span>
+                            )}
+                            {result.isbn && (
+                              <span className="text-xs text-gray-400">ISBN: {result.isbn}</span>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {!searching && searchResults.length === 0 && titleQuery && (
+                  <p className="text-xs text-gray-400 mt-2">No results yet — press Search to look up books</p>
+                )}
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-blue-200" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-blue-50 px-3 text-blue-500 font-medium">OR</span>
+                </div>
+              </div>
+
+              {/* Barcode scanner */}
+              <div>
+                <h3 className="text-sm font-medium text-blue-700 mb-2">📷 Scan barcode / enter ISBN</h3>
+                <BarcodeScanner onScan={handleScan} />
+                {lookupLoading && (
+                  <p className="text-sm text-blue-600 mt-3">Looking up book...</p>
+                )}
+              </div>
+
+              <div className="pt-2 border-t border-blue-200">
                 <button
                   onClick={() => setScanned(true)}
                   className="text-sm text-blue-600 hover:underline"
                 >
-                  Skip scanning — enter details manually →
+                  Skip — enter details manually →
                 </button>
               </div>
             </div>
