@@ -78,6 +78,8 @@ model Book {
   qualifier     Qualifier? @relation(fields: [qualifierId], references: [id], onDelete: SetNull)
   binId         String?
   bin           Bin?       @relation(fields: [binId], references: [id], onDelete: SetNull)
+  resourceId    String?
+  resource      Resource?  @relation(fields: [resourceId], references: [id], onDelete: SetNull)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   checkouts     Checkout[]
@@ -115,6 +117,7 @@ model Resource {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   checkouts          ResourceCheckout[]
+  books              Book[]
 
   @@index([binId])
   @@index([resourceCategoryId])

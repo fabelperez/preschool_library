@@ -8,6 +8,13 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
       category: true,
       qualifier: true,
       bin: { include: { shelf: { select: { id: true, name: true } } } },
+      resource: {
+        include: {
+          checkouts: { include: { teacher: true }, orderBy: { checkedOutAt: "desc" } },
+          bin: { include: { shelf: { select: { id: true, name: true } } } },
+          resourceCategory: true,
+        },
+      },
       checkouts: {
         include: { teacher: true },
         orderBy: { checkedOutAt: "desc" },
@@ -19,7 +26,13 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
     return NextResponse.json({ error: "Book not found" }, { status: 404 });
   }
 
-  const availableCopies = book.totalCopies - book.checkouts.filter((c) => !c.returnedAt).length;
+  let availableCopies: number;
+  if (book.resource) {
+    const activeResourceCheckouts = book.resource.checkouts.filter((c) => !c.returnedAt);
+    availableCopies = Math.max(0, book.resource.quantity - activeResourceCheckouts.length);
+  } else {
+    availableCopies = book.totalCopies - book.checkouts.filter((c) => !c.returnedAt).length;
+  }
 
   return NextResponse.json({ ...book, availableCopies });
 }
@@ -27,7 +40,7 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const body = await request.json();
-    const { title, author, isbn, coverImageUrl, totalCopies, categoryId, qualifierId, binId } = body;
+    const { title, author, isbn, coverImageUrl, totalCopies, categoryId, qualifierId, binId, resourceId } = body;
 
     const book = await prisma.book.update({
       where: { id: params.id },
@@ -40,8 +53,9 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         categoryId: categoryId || null,
         qualifierId: qualifierId || null,
         binId: binId || null,
+        resourceId: resourceId || null,
       },
-      include: { category: true, qualifier: true, bin: true },
+      include: { category: true, qualifier: true, bin: true, resource: true },
     });
 
     return NextResponse.json(book);

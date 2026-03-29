@@ -11,6 +11,7 @@ interface Book {
   isbn: string | null;
   availableCopies: number;
   totalCopies: number;
+  resourceId: string | null;
 }
 
 interface Teacher {
@@ -35,7 +36,8 @@ function CheckoutContent() {
       fetch("/api/books").then((r) => r.json()),
       fetch("/api/teachers").then((r) => r.json()),
     ]).then(([booksData, teachersData]) => {
-      setBooks(booksData);
+      // Exclude resource-attached books — their availability is managed via resource checkouts
+      setBooks(booksData.filter((b: Book) => !b.resourceId));
       setTeachers(teachersData);
       
       if (preselectedBookId) {
@@ -75,7 +77,7 @@ function CheckoutContent() {
         setSelectedTeacherId("");
         // Refresh book data
         const updated = await fetch("/api/books").then((r) => r.json());
-        setBooks(updated);
+        setBooks(updated.filter((b: Book) => !b.resourceId));
       } else {
         const err = await res.json();
         setMessage({ type: "error", text: err.error || "Checkout failed" });

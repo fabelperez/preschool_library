@@ -26,6 +26,12 @@ export async function GET(request: NextRequest) {
       category: true,
       qualifier: true,
       bin: { include: { shelf: { select: { id: true, name: true } } } },
+      resource: {
+        include: {
+          checkouts: { where: { returnedAt: null } },
+          bin: { include: { shelf: { select: { id: true, name: true } } } },
+        },
+      },
       checkouts: {
         where: { returnedAt: null },
         include: { teacher: true },
@@ -34,14 +40,23 @@ export async function GET(request: NextRequest) {
     orderBy: { title: "asc" },
   });
 
-  const booksWithAvailability = books.map((book) => ({
-    ...book,
-    availableCopies: book.totalCopies - book.checkouts.length,
-    checkedOutBy: book.checkouts.map((c) => ({
-      teacherName: c.teacher.name,
-      checkedOutAt: c.checkedOutAt,
-    })),
-  }));
+  const booksWithAvailability = books.map((book) => {
+    let availableCopies: number;
+    if (book.resource) {
+      // Resource-attached book: availability derived from resource checkouts
+      availableCopies = Math.max(0, book.resource.quantity - book.resource.checkouts.length);
+    } else {
+      availableCopies = book.totalCopies - book.checkouts.length;
+    }
+    return {
+      ...book,
+      availableCopies,
+      checkedOutBy: book.checkouts.map((c) => ({
+        teacherName: c.teacher.name,
+        checkedOutAt: c.checkedOutAt,
+      })),
+    };
+  });
 
   return NextResponse.json(booksWithAvailability);
 }
@@ -49,7 +64,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { isbn, title, author, coverImageUrl, totalCopies, categoryId, qualifierId, binId } = body;
+    const { isbn, title, author, coverImageUrl, totalCopies, categoryId, qualifierId, binId, resourceId } = body;
 
     if (!title || !author) {
       return NextResponse.json({ error: "Title and author are required" }, { status: 400 });
@@ -65,8 +80,9 @@ export async function POST(request: NextRequest) {
         categoryId: categoryId || null,
         qualifierId: qualifierId || null,
         binId: binId || null,
+        resourceId: resourceId || null,
       },
-      include: { category: true, qualifier: true, bin: true },
+      include: { category: true, qualifier: true, bin: true, resource: true },
     });
 
     return NextResponse.json(book, { status: 201 });

@@ -18,6 +18,13 @@ interface BinOption {
   shelfName: string;
 }
 
+interface ResourceOption {
+  id: string;
+  name: string;
+  binLabel: string;
+  shelfName: string;
+}
+
 interface BookFormProps {
   initialData?: {
     isbn?: string;
@@ -28,6 +35,7 @@ interface BookFormProps {
     categoryId?: string | null;
     qualifierId?: string | null;
     binId?: string | null;
+    resourceId?: string | null;
   };
   onSubmit: (data: {
     isbn: string;
@@ -38,6 +46,7 @@ interface BookFormProps {
     categoryId: string;
     qualifierId: string;
     binId: string;
+    resourceId: string;
   }) => Promise<void>;
   submitLabel?: string;
 }
@@ -51,9 +60,11 @@ export default function BookForm({ initialData, onSubmit, submitLabel = "Save Bo
   const [categoryId, setCategoryId] = useState(initialData?.categoryId || "");
   const [qualifierId, setQualifierId] = useState(initialData?.qualifierId || "");
   const [binId, setBinId] = useState(initialData?.binId || "");
+  const [resourceId, setResourceId] = useState(initialData?.resourceId || "");
   const [categories, setCategories] = useState<Category[]>([]);
   const [qualifiers, setQualifiers] = useState<Qualifier[]>([]);
   const [bins, setBins] = useState<BinOption[]>([]);
+  const [resources, setResources] = useState<ResourceOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newQualifierName, setNewQualifierName] = useState("");
@@ -64,7 +75,8 @@ export default function BookForm({ initialData, onSubmit, submitLabel = "Save Bo
       fetch("/api/categories").then((r) => r.json()),
       fetch("/api/qualifiers").then((r) => r.json()),
       fetch("/api/bins").then((r) => r.json()),
-    ]).then(([cats, quals, binData]) => {
+      fetch("/api/resources").then((r) => r.json()),
+    ]).then(([cats, quals, binData, resourceData]) => {
       setCategories(cats);
       setQualifiers(quals);
       setBins(
@@ -72,6 +84,14 @@ export default function BookForm({ initialData, onSubmit, submitLabel = "Save Bo
           id: b.id,
           label: `${b.shelf.name} → ${b.label || `Bin ${b.number}`}`,
           shelfName: b.shelf.name,
+        }))
+      );
+      setResources(
+        resourceData.map((r: { id: string; name: string; bin?: { label: string | null; number: number; shelf: { name: string } } }) => ({
+          id: r.id,
+          name: r.name,
+          binLabel: r.bin ? (r.bin.label || `Bin ${r.bin.number}`) : "",
+          shelfName: r.bin?.shelf?.name || "",
         }))
       );
     }).catch(console.error);
@@ -101,7 +121,7 @@ export default function BookForm({ initialData, onSubmit, submitLabel = "Save Bo
     setError(null);
 
     try {
-      await onSubmit({ isbn, title, author, coverImageUrl: coverImageUrl || "", totalCopies, categoryId, qualifierId, binId });
+      await onSubmit({ isbn, title, author, coverImageUrl: coverImageUrl || "", totalCopies, categoryId, qualifierId, binId, resourceId });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -231,17 +251,30 @@ export default function BookForm({ initialData, onSubmit, submitLabel = "Save Bo
 
       {qualifiers.find((q) => q.id === qualifierId)?.name === "Teacher Resource" && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Bin (for Teacher Resource books)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Attached Resource</label>
           <select
-            value={binId}
-            onChange={(e) => setBinId(e.target.value)}
+            value={resourceId}
+            onChange={(e) => {
+              setResourceId(e.target.value);
+              // Auto-set bin from the selected resource
+              const res = resources.find((r) => r.id === e.target.value);
+              if (res) {
+                const matchingBin = bins.find((b) => b.label.includes(res.binLabel) && b.label.includes(res.shelfName));
+                if (matchingBin) setBinId(matchingBin.id);
+              }
+            }}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
-            <option value="">No bin</option>
-            {bins.map((b) => (
-              <option key={b.id} value={b.id}>{b.label}</option>
+            <option value="">No resource (standalone book)</option>
+            {resources.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name} — {r.shelfName} → {r.binLabel}
+              </option>
             ))}
           </select>
+          <p className="text-xs text-gray-500 mt-1">
+            Books attached to a resource will have their availability managed by the resource&apos;s checkouts.
+          </p>
         </div>
       )}
 
