@@ -22,6 +22,24 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
         },
         orderBy: { position: "asc" },
       },
+      bins: {
+        include: {
+          resources: {
+            include: {
+              resourceCategory: true,
+              checkouts: { where: { returnedAt: null } },
+            },
+          },
+          books: {
+            include: {
+              category: true,
+              qualifier: true,
+              checkouts: { where: { returnedAt: null } },
+            },
+          },
+        },
+        orderBy: { number: "asc" },
+      },
     },
   });
 
@@ -35,7 +53,7 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const body = await request.json();
-    const { name, position, sections } = body;
+    const { name, position, type, sections } = body;
 
     // Update shelf basic info + layout fields
     const shelf = await prisma.shelf.update({
@@ -43,6 +61,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       data: {
         name,
         position,
+        ...(type !== undefined && { type }),
         ...(body.layoutX !== undefined && { layoutX: body.layoutX }),
         ...(body.layoutY !== undefined && { layoutY: body.layoutY }),
         ...(body.layoutWidth !== undefined && { layoutWidth: body.layoutWidth }),

@@ -19,8 +19,10 @@ interface ShelfSection {
 interface Shelf {
   id: string;
   name: string;
+  type: string;
   position: number;
   sections: ShelfSection[];
+  bins: { id: string; number: number; label: string | null }[];
 }
 
 export default function ManageShelvesPage() {
@@ -237,9 +239,17 @@ export default function ManageShelvesPage() {
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="font-bold text-lg text-amber-900">{shelf.name}</h3>
-                  <p className="text-sm text-amber-700">{shelf.sections.length} sections</p>
+                  <p className="text-sm text-amber-700">
+                    {shelf.type === "resource" ? "🧩 Teacher Resource" : "📖 General Book"} ·{" "}
+                    {shelf.type === "resource"
+                      ? `${shelf.bins?.length || 0} bins`
+                      : `${shelf.sections.length} sections`}
+                  </p>
                 </div>
                 <div className="flex gap-2">
+                  <Link href={`/admin/shelves/${shelf.id}/edit`} className="text-sm text-amber-600 hover:underline font-medium">
+                    Edit
+                  </Link>
                   <Link href={`/shelves/${shelf.id}`} className="text-sm text-indigo-600 hover:underline">
                     View
                   </Link>
