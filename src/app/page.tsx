@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import SearchBar from "@/components/SearchBar";
+import UnifiedSearch from "@/components/UnifiedSearch";
 import LibraryRoomView from "@/components/LibraryRoomView";
 
 interface ShelfSection {
@@ -54,8 +54,8 @@ export default function Home() {
       <div className="text-center space-y-4">
         <h1 className="text-3xl font-bold text-gray-900">📚 Little Library</h1>
         <p className="text-gray-600">Welcome to the preschool library catalog</p>
-        <div className="max-w-xl mx-auto">
-          <SearchBar />
+        <div className="max-w-2xl mx-auto">
+          <UnifiedSearch />
         </div>
       </div>
 
