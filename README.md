@@ -1,6 +1,6 @@
-# 📚 Little Library — Preschool Book Catalog
+# 📚 Little Library — Preschool Book & Resource Catalog
 
-A web application for managing a preschool library. Teachers can search for books, see which shelf they belong on, and check them out. Admins manage the book inventory and shelf layout. Supports barcode scanning (ISBN) to quickly add and look up books.
+A web application for managing a preschool library and teacher resource inventory. Teachers can search for books, see which shelf they belong on, and check them out. Admins manage the book inventory, teacher resources, and shelf layout. Supports barcode scanning (ISBN) to quickly add and look up books.
 
 ## Quick Start
 
@@ -18,18 +18,71 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) to view the app.
 
-## Features
-
-- **Library Layout** — Visual grid of shelves, sections, and categories with availability badges
-- **Book Management** — Add books via barcode scan (camera or USB scanner) with auto-fill from Open Library API
-- **Search** — Find books by title, author, or ISBN; results show shelf location and availability
-- **Checkout/Check-in** — Teachers select their name and check out available books; check in by scanning the barcode
-- **Admin Panel** — Manage shelves, sections, categories, and teachers (login required)
-
 ## Default Admin Login
 
 - Username: `admin`
 - Password: `admin123`
+
+## Librarian Workflows
+
+### 📚 Book Management
+
+| Workflow | Page | Description |
+|----------|------|-------------|
+| Add a book | `/books/add` | Scan an ISBN (camera or USB scanner) to auto-fill from Open Library, or enter details manually |
+| Edit a book | `/books/[id]/edit` | Update title, author, category, qualifier, cover image, and copy count |
+| Delete a book | `/books/[id]` | Remove a book from the catalog |
+| Browse & search books | `/books` | Filter by category, search by title/author/ISBN |
+| View book details | `/books/[id]` | See cover, metadata, shelf location, availability, and full checkout history |
+
+### 🔄 Book Circulation
+
+| Workflow | Page | Description |
+|----------|------|-------------|
+| Check out a book | `/checkout` | Scan or search for a book, select a teacher, and confirm checkout |
+| Return a book | `/checkin` | Scan ISBN or select from active checkouts to check in |
+
+### 📦 Teacher Resources
+
+| Workflow | Page | Description |
+|----------|------|-------------|
+| Browse & search resources | `/resources` | Filter by theme (resource category), search by name |
+| View resource details | `/resources/[id]` | See quantity, bin location, availability, and checkout history |
+| Check out resources | `/resources/checkout` | Select resource by shelf, bin, and item; assign to a teacher |
+| Return resources | `/resources/checkin` | Select from active resource checkouts to return |
+
+### 🗄️ Shelves & Room Layout
+
+| Workflow | Page | Description |
+|----------|------|-------------|
+| Create / delete shelves | `/admin/shelves` | Add book shelves with named sections linked to categories |
+| Add Book Shelf or Resource Shelf | `/admin/shelves/layout` | Choose shelf type when adding from the layout editor |
+| Arrange room layout | `/admin/shelves/layout` | Drag-and-drop shelves and room fixtures (doors, windows, rugs, tables) |
+| View interactive room map | `/` | Homepage shows positioned shelves color-coded by availability |
+
+### 📂 Categories & Organization
+
+| Workflow | Page | Description |
+|----------|------|-------------|
+| Manage book categories | `/admin/shelves` | Add or delete book categories (e.g., Animals, Weather) |
+| Manage resource themes | `/admin/resources` | Add or delete resource themes (e.g., Fall, Winter) |
+| Manage bins | `/admin/resources` | Add, label, or remove bins on resource shelves |
+
+### 👩‍🏫 Teachers & Submissions
+
+| Workflow | Page | Description |
+|----------|------|-------------|
+| Manage teachers | `/admin/teachers` | Add new teachers and view their active checkouts |
+| Review book submissions | `/admin/submissions` | Approve (assign category) or reject teacher-submitted books |
+| Submit a book suggestion | `/books/submit` | Teachers scan or enter a book to suggest for the library |
+
+### 🏠 Homepage Dashboard
+
+| Workflow | Page | Description |
+|----------|------|-------------|
+| Room overview | `/` | Interactive library map with availability-based shelf coloring (green = all available, amber = some checked out, red = all checked out) |
+| Quick actions | `/` | One-click access to checkout, check-in, and book submission |
+| Global search | `/` | Search bar to find books by title, author, or ISBN |
 
 ## Tech Stack
 
