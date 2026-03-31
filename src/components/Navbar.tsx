@@ -26,12 +26,19 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [role, setRole] = useState<string | null>(null);
+  const [checked, setChecked] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
-    setRole(sessionStorage.getItem("role"));
-  }, [pathname]);
+    const stored = sessionStorage.getItem("role");
+    setRole(stored);
+    setChecked(true);
+    // Redirect to cover page if no role selected (except when already on cover)
+    if (!stored && pathname !== "/") {
+      router.replace("/");
+    }
+  }, [pathname, router]);
 
   const isLibrarian = role === "librarian";
 
@@ -43,8 +50,8 @@ export default function Navbar() {
       .catch(() => {});
   }, [pathname, isLibrarian]);
 
-  // Hide navbar on cover page
-  if (pathname === "/") return null;
+  // Hide navbar on cover page or before role is checked
+  if (pathname === "/" || !checked || !role) return null;
 
   const visibleLinks = isLibrarian ? [...publicLinks, ...adminLinks] : publicLinks;
 
