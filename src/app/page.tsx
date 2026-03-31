@@ -7,7 +7,7 @@ export default function CoverPage() {
 
   const selectRole = (role: "librarian" | "teacher") => {
     sessionStorage.setItem("role", role);
-    router.push(role === "librarian" ? "/library" : "/library");
+    router.push(role === "librarian" ? "/admin" : "/library");
   };
 
   return (
