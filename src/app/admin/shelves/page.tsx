@@ -240,7 +240,7 @@ export default function ManageShelvesPage() {
                 <div>
                   <h3 className="font-bold text-lg text-amber-900">{shelf.name}</h3>
                   <p className="text-sm text-amber-700">
-                    {shelf.type === "resource" ? "🧩 Teacher Resource" : "📖 General Book"} ·{" "}
+                    {shelf.type === "resource" ? "🧩 Teacher Resource Materials" : "📖 General Book"} ·{" "}
                     {shelf.type === "resource"
                       ? `${shelf.bins?.length || 0} bins`
                       : `${shelf.sections.length} sections`}

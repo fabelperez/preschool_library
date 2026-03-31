@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       ...resources.map((r) => ({
         id: r.id,
         type: "resource" as const,
-        description: `Teacher Resource: "${r.name}". ${r.description || ""}. Theme: ${r.resourceCategory?.name || "none"}.`,
+        description: `Teacher Resource Material: "${r.name}". ${r.description || ""}. Theme: ${r.resourceCategory?.name || "none"}.`,
       })),
     ];
 

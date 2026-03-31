@@ -154,7 +154,7 @@ function ResourcesContent() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">📦 Teacher Resources</h1>
+        <h1 className="text-2xl font-bold text-gray-900">📦 Teacher Resource Materials</h1>
         <div className="flex gap-2">
           <Link
             href="/resources/checkout"

@@ -353,7 +353,7 @@ export default function UnifiedSearch({ onSelectBook }: { onSelectBook?: (book: 
           {/* Resources */}
           {filteredResources.length > 0 && (
             <ResultSection
-              title="🧩 Teacher Resources"
+              title="🧩 Teacher Resource Materials"
               count={filteredResources.length}
             >
               {filteredResources.map((resource) => (
