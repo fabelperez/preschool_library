@@ -160,9 +160,10 @@ export async function GET(request: NextRequest) {
     };
   });
 
-  // Compute resource availability
+  // Compute resource availability (theme checkout → 0 available)
   const resourcesWithAvailability = resources.map((r) => {
     const themeName = r.resourceCategory?.name || null;
+    const themeCheckedOut = r.resourceCategoryId ? checkedOutThemes.has(r.resourceCategoryId) : false;
     const bin = r.bin;
     const locationPath = bin
       ? [bin.shelf?.name || "?", bin.label || `Bin ${bin.number}`, ...(themeName ? [themeName] : [])].join(" › ")
@@ -173,7 +174,8 @@ export async function GET(request: NextRequest) {
       resultType: "resource" as const,
       themeName,
       locationPath,
-      availableQuantity: r.quantity - r.checkouts.length,
+      themeCheckedOut,
+      availableQuantity: themeCheckedOut ? 0 : r.quantity - r.checkouts.length,
       checkedOutBy: r.checkouts.map((c) => ({
         teacherName: c.teacher.name,
         checkedOutAt: c.checkedOutAt,

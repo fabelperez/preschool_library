@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCheckedOutThemeIds } from "@/lib/checkout-rules";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -45,14 +46,20 @@ export async function GET(request: NextRequest) {
     ],
   });
 
-  const resourcesWithAvailability = resources.map((r) => ({
-    ...r,
-    availableQuantity: r.quantity - r.checkouts.length,
-    checkedOutBy: r.checkouts.map((c) => ({
-      teacherName: c.teacher.name,
-      checkedOutAt: c.checkedOutAt,
-    })),
-  }));
+  const checkedOutThemes = await getCheckedOutThemeIds();
+
+  const resourcesWithAvailability = resources.map((r) => {
+    const themeCheckedOut = r.resourceCategoryId ? checkedOutThemes.has(r.resourceCategoryId) : false;
+    return {
+      ...r,
+      themeCheckedOut,
+      availableQuantity: themeCheckedOut ? 0 : r.quantity - r.checkouts.length,
+      checkedOutBy: r.checkouts.map((c) => ({
+        teacherName: c.teacher.name,
+        checkedOutAt: c.checkedOutAt,
+      })),
+    };
+  });
 
   return NextResponse.json(resourcesWithAvailability);
 }
