@@ -40,14 +40,14 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { number, label, shelfId } = body;
+    const { number, label, theme, shelfId } = body;
 
     if (!number || !shelfId) {
       return NextResponse.json({ error: "Bin number and shelf ID are required" }, { status: 400 });
     }
 
     const bin = await prisma.bin.create({
-      data: { number, label: label || `Bin ${number}`, shelfId },
+      data: { number, label: label || `Bin ${number}`, theme: theme || "General", shelfId },
       include: { shelf: { select: { id: true, name: true } } },
     });
 

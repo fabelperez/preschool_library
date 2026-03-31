@@ -352,7 +352,7 @@ export default function ShelfLayoutEditorPage() {
               <div
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSelected(isSelected ? null : { kind: "fixture", id: fixture.id });
+                  setSelected({ kind: "fixture", id: fixture.id });
                 }}
                 style={{ transform: fixture.layoutRotation ? `rotate(${fixture.layoutRotation}deg)` : undefined }}
                 className={`w-full h-full flex items-center justify-center cursor-move transition-all
@@ -403,7 +403,7 @@ export default function ShelfLayoutEditorPage() {
               <div
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSelected(isSelected ? null : { kind: "shelf", id: shelf.id });
+                  setSelected({ kind: "shelf", id: shelf.id });
                 }}
                 style={{ transform: shelf.layoutRotation ? `rotate(${shelf.layoutRotation}deg)` : undefined }}
                 className={`w-full h-full rounded-lg border-2 flex flex-col items-center justify-center cursor-move transition-colors

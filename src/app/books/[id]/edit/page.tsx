@@ -15,6 +15,7 @@ export default function EditBookPage() {
     coverImageUrl: string | null;
     totalCopies: number;
     categoryId: string | null;
+    resourceCategoryId: string | null;
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -29,6 +30,7 @@ export default function EditBookPage() {
           coverImageUrl: data.coverImageUrl,
           totalCopies: data.totalCopies,
           categoryId: data.categoryId,
+          resourceCategoryId: data.resourceCategoryId,
         });
       })
       .catch(console.error)
@@ -42,6 +44,7 @@ export default function EditBookPage() {
     coverImageUrl: string;
     totalCopies: number;
     categoryId: string;
+    resourceCategoryId: string;
   }) => {
     const res = await fetch(`/api/books/${params.id}`, {
       method: "PUT",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -15,6 +15,7 @@ interface Resource {
     id: string;
     number: number;
     label: string | null;
+    theme: string;
     shelf: { id: string; name: string };
   };
   checkedOutBy: { teacherName: string; checkedOutAt: string }[];
@@ -25,11 +26,48 @@ interface ResourceCategory {
   name: string;
 }
 
+function ResourceCard({ resource }: { resource: Resource }) {
+  return (
+    <Link
+      href={`/resources/${resource.id}`}
+      className="block bg-white border rounded-xl p-4 hover:shadow-md transition-shadow"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-gray-900">{resource.name}</h3>
+          {resource.description && (
+            <p className="text-sm text-gray-500 mt-1 truncate">{resource.description}</p>
+          )}
+          <div className="flex gap-2 mt-2 flex-wrap">
+            <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full">
+              {resource.resourceCategory.name}
+            </span>
+            <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
+              {resource.bin.shelf.name} → {resource.bin.label || `Bin ${resource.bin.number}`}
+            </span>
+          </div>
+        </div>
+        <div className="flex-shrink-0 ml-4 text-right">
+          <span className={`text-sm font-medium px-3 py-1 rounded-full ${
+            resource.availableQuantity > 0
+              ? "bg-green-100 text-green-700"
+              : "bg-red-100 text-red-700"
+          }`}>
+            {resource.availableQuantity}/{resource.quantity}
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 function ResourcesContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const query = searchParams.get("q") || "";
   const categoryId = searchParams.get("resourceCategoryId") || "";
+  const shelfId = searchParams.get("shelfId") || "";
+  const binId = searchParams.get("binId") || "";
   const [resources, setResources] = useState<Resource[]>([]);
   const [categories, setCategories] = useState<ResourceCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,13 +84,56 @@ function ResourcesContent() {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
     if (categoryId) params.set("resourceCategoryId", categoryId);
+    if (shelfId) params.set("shelfId", shelfId);
+    if (binId) params.set("binId", binId);
 
     fetch(`/api/resources?${params.toString()}`)
       .then((r) => r.json())
       .then(setResources)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [query, categoryId]);
+  }, [query, categoryId, shelfId, binId]);
+
+  // Group resources: Shelf → Bin (with theme) → Resources
+  const grouped = useMemo(() => {
+    const shelfMap = new Map<string, {
+      shelfName: string;
+      bins: Map<string, {
+        binLabel: string;
+        binNumber: number;
+        theme: string;
+        resources: Resource[];
+      }>;
+    }>();
+
+    for (const r of resources) {
+      const shelfKey = r.bin?.shelf?.id || "_default";
+      if (!shelfMap.has(shelfKey)) {
+        shelfMap.set(shelfKey, {
+          shelfName: r.bin?.shelf?.name || "Default Shelf",
+          bins: new Map(),
+        });
+      }
+      const shelf = shelfMap.get(shelfKey)!;
+      const binKey = r.bin?.id || "_default";
+      if (!shelf.bins.has(binKey)) {
+        shelf.bins.set(binKey, {
+          binLabel: r.bin?.label || "Default",
+          binNumber: r.bin?.number ?? 0,
+          theme: r.bin?.theme || "General",
+          resources: [],
+        });
+      }
+      shelf.bins.get(binKey)!.resources.push(r);
+    }
+
+    return Array.from(shelfMap.values())
+      .map((s) => ({
+        ...s,
+        bins: Array.from(s.bins.values()).sort((a, b) => a.binNumber - b.binNumber),
+      }))
+      .sort((a, b) => a.shelfName.localeCompare(b.shelfName));
+  }, [resources]);
 
   const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -131,39 +212,30 @@ function ResourcesContent() {
           <p className="text-gray-500">{query ? "No resources match your search." : "No resources in the library yet."}</p>
         </div>
       ) : (
-        <div className="grid gap-3">
-          {resources.map((resource) => (
-            <Link
-              key={resource.id}
-              href={`/resources/${resource.id}`}
-              className="block bg-white border rounded-xl p-4 hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900">{resource.name}</h3>
-                  {resource.description && (
-                    <p className="text-sm text-gray-500 mt-1 truncate">{resource.description}</p>
-                  )}
-                  <div className="flex gap-2 mt-2 flex-wrap">
-                    <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full">
-                      {resource.resourceCategory.name}
-                    </span>
-                    <span className="px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
-                      {resource.bin.shelf.name} → {resource.bin.label || `Bin ${resource.bin.number}`}
-                    </span>
+        // Shelf → Bin (theme) → Resources
+        <div className="space-y-8">
+          {grouped.map((shelf) => (
+            <div key={shelf.shelfName}>
+              <h2 className="text-lg font-bold text-gray-800 mb-3">📚 {shelf.shelfName}</h2>
+              <div className="space-y-4">
+                {shelf.bins.map((bin) => (
+                  <div key={`${bin.binLabel}-${bin.binNumber}`} className="border-2 border-emerald-200 rounded-xl overflow-hidden">
+                    <div className="bg-emerald-50 px-4 py-2 border-b border-emerald-200 flex items-center gap-2">
+                      <h3 className="font-semibold text-emerald-800">📥 {bin.binLabel}</h3>
+                      <span className="px-2 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full">
+                        🎨 {bin.theme}
+                      </span>
+                      <span className="text-xs text-gray-400">{bin.resources.length} resources</span>
+                    </div>
+                    <div className="grid gap-2 p-3">
+                      {bin.resources.map((resource) => (
+                        <ResourceCard key={resource.id} resource={resource} />
+                      ))}
+                    </div>
                   </div>
-                </div>
-                <div className="flex-shrink-0 ml-4 text-right">
-                  <span className={`text-sm font-medium px-3 py-1 rounded-full ${
-                    resource.availableQuantity > 0
-                      ? "bg-green-100 text-green-700"
-                      : "bg-red-100 text-red-700"
-                  }`}>
-                    {resource.availableQuantity}/{resource.quantity}
-                  </span>
-                </div>
+                ))}
               </div>
-            </Link>
+            </div>
           ))}
         </div>
       )}

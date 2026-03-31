@@ -5,8 +5,10 @@ import BarcodeScanner from "@/components/BarcodeScanner";
 
 interface ActiveCheckout {
   id: string;
+  type: string;
   checkedOutAt: string;
-  book: { id: string; title: string; author: string; isbn: string | null; category: { name: string } | null };
+  book: { id: string; title: string; author: string; isbn: string | null; category: { name: string } | null } | null;
+  resourceCategory: { id: string; name: string } | null;
   teacher: { name: string };
 }
 
@@ -47,17 +49,19 @@ export default function CheckinPage() {
     }
   };
 
-  const handleReturnById = async (checkoutId: string) => {
+  const handleReturnById = async (co: ActiveCheckout) => {
     try {
       const res = await fetch("/api/checkouts/return", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ checkoutId }),
+        body: JSON.stringify({ checkoutId: co.id }),
       });
 
       if (res.ok) {
-        const data = await res.json();
-        setMessage({ type: "success", text: `"${data.book.title}" returned by ${data.teacher.name}!` });
+        const label = co.type === "THEME"
+          ? `Theme "${co.resourceCategory?.name}"`
+          : `"${co.book?.title}"`;
+        setMessage({ type: "success", text: `${label} returned by ${co.teacher.name}!` });
         fetchCheckouts();
       } else {
         const err = await res.json();
@@ -68,9 +72,12 @@ export default function CheckinPage() {
     }
   };
 
+  const bookCheckouts = checkouts.filter((co) => co.type === "BOOK" || !co.type);
+  const themeCheckouts = checkouts.filter((co) => co.type === "THEME");
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">↩️ Check In a Book</h1>
+      <h1 className="text-2xl font-bold text-gray-900">↩️ Check In</h1>
 
       {message && (
         <div className={`p-4 rounded-lg ${
@@ -85,26 +92,53 @@ export default function CheckinPage() {
         <BarcodeScanner onScan={handleScan} placeholder="Scan ISBN to check in..." />
       </div>
 
-      <div>
-        <h2 className="font-semibold text-gray-800 mb-3">Currently Checked Out ({checkouts.length})</h2>
-        
-        {loading ? (
-          <p className="text-gray-500">Loading...</p>
-        ) : checkouts.length === 0 ? (
-          <p className="text-gray-500 bg-gray-50 rounded-lg p-6 text-center">All books are returned! 🎉</p>
-        ) : (
+      {/* Theme checkouts */}
+      {themeCheckouts.length > 0 && (
+        <div>
+          <h2 className="font-semibold text-gray-800 mb-3">📚 Checked Out Themes ({themeCheckouts.length})</h2>
           <div className="space-y-2">
-            {checkouts.map((co) => (
-              <div key={co.id} className="flex justify-between items-center bg-white border rounded-lg p-4">
+            {themeCheckouts.map((co) => (
+              <div key={co.id} className="flex justify-between items-center bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <div>
-                  <div className="font-medium">{co.book.title}</div>
+                  <div className="font-medium">🎨 {co.resourceCategory?.name}</div>
                   <div className="text-sm text-gray-500">
-                    by {co.book.author} • Checked out by <span className="font-medium">{co.teacher.name}</span> on{" "}
+                    Checked out by <span className="font-medium">{co.teacher.name}</span> on{" "}
                     {new Date(co.checkedOutAt).toLocaleDateString()}
                   </div>
                 </div>
                 <button
-                  onClick={() => handleReturnById(co.id)}
+                  onClick={() => handleReturnById(co)}
+                  className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm whitespace-nowrap"
+                >
+                  Return Theme
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Book checkouts */}
+      <div>
+        <h2 className="font-semibold text-gray-800 mb-3">📖 Checked Out Books ({bookCheckouts.length})</h2>
+        
+        {loading ? (
+          <p className="text-gray-500">Loading...</p>
+        ) : bookCheckouts.length === 0 ? (
+          <p className="text-gray-500 bg-gray-50 rounded-lg p-6 text-center">All books are returned! 🎉</p>
+        ) : (
+          <div className="space-y-2">
+            {bookCheckouts.map((co) => (
+              <div key={co.id} className="flex justify-between items-center bg-white border rounded-lg p-4">
+                <div>
+                  <div className="font-medium">{co.book?.title}</div>
+                  <div className="text-sm text-gray-500">
+                    by {co.book?.author} • Checked out by <span className="font-medium">{co.teacher.name}</span> on{" "}
+                    {new Date(co.checkedOutAt).toLocaleDateString()}
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleReturnById(co)}
                   className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm whitespace-nowrap"
                 >
                   Return

@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCheckedOutThemeIds } from "@/lib/checkout-rules";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const query = searchParams.get("q") || "";
   const categoryId = searchParams.get("categoryId") || "";
   const resourceCategoryId = searchParams.get("resourceCategoryId") || "";
+
+  // Look up theme name for bin-level matching
+  let themeName: string | null = null;
+  if (resourceCategoryId) {
+    const themeCategory = await prisma.resourceCategory.findUnique({
+      where: { id: resourceCategoryId },
+      select: { name: true },
+    });
+    themeName = themeCategory?.name || null;
+  }
 
   // --- Build book query ---
   const bookWhere: Record<string, unknown> = {};
@@ -22,11 +33,26 @@ export async function GET(request: NextRequest) {
     bookWhere.categoryId = categoryId;
   }
 
-  // Theme filter: include books linked to resources in the selected theme
+  // Theme filter: books linked to resource with theme, directly tagged, or in themed bin
   if (resourceCategoryId) {
-    bookWhere.resource = {
-      resourceCategoryId: resourceCategoryId,
-    };
+    const themeConditions: Record<string, unknown>[] = [
+      { resource: { resourceCategoryId } },
+      { resourceCategoryId },
+    ];
+    if (themeName) {
+      themeConditions.push({ bin: { theme: themeName } });
+    }
+
+    if (bookWhere.OR) {
+      const textConditions = bookWhere.OR;
+      delete bookWhere.OR;
+      bookWhere.AND = [
+        { OR: textConditions },
+        { OR: themeConditions },
+      ];
+    } else {
+      bookWhere.OR = themeConditions;
+    }
   }
 
   // --- Build resource query ---
@@ -44,12 +70,13 @@ export async function GET(request: NextRequest) {
   }
 
   // Run both queries in parallel
-  const [books, resources, categories, resourceCategories] = await Promise.all([
+  const [books, resources, categories, resourceCategories, shelfSections] = await Promise.all([
     prisma.book.findMany({
       where: bookWhere,
       include: {
         category: true,
         qualifier: true,
+        resourceCategory: true,
         bin: { include: { shelf: { select: { id: true, name: true } } } },
         resource: {
           include: {
@@ -84,26 +111,48 @@ export async function GET(request: NextRequest) {
         }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
     prisma.resourceCategory.findMany({ orderBy: { name: "asc" } }),
+    prisma.shelfSection.findMany({
+      include: { shelf: { select: { name: true } }, category: { select: { name: true } } },
+    }),
   ]);
 
-  // Compute book availability
-  const booksWithAvailability = books.map((book) => {
-    let availableCopies: number;
-    const isTeacherResource = !!book.resource;
-    if (book.resource) {
-      availableCopies = Math.max(
-        0,
-        book.resource.quantity - book.resource.checkouts.length
+  // Build category → shelf location map for books without a bin
+  const categoryShelfMap = new Map<string, string>();
+  for (const section of shelfSections) {
+    if (!categoryShelfMap.has(section.categoryId)) {
+      categoryShelfMap.set(
+        section.categoryId,
+        [section.shelf.name, section.label || section.category.name].filter(Boolean).join(" › ")
       );
-    } else {
-      availableCopies = book.totalCopies - book.checkouts.length;
     }
+  }
+
+  // Get themes with active checkouts for availability computation
+  const checkedOutThemes = await getCheckedOutThemeIds();
+
+  // Compute book availability (always based on canonical book copy count)
+  const booksWithAvailability = books.map((book) => {
+    const isTeacherResource = !!book.resource;
+    const bookThemeCatId = book.resourceCategoryId || book.resource?.resourceCategoryId || null;
+    const themeCheckedOut = bookThemeCatId ? checkedOutThemes.has(bookThemeCatId) : false;
+    const availableCopies = themeCheckedOut ? 0 : book.totalCopies - book.checkouts.length;
+    const themeName = book.resource?.resourceCategory?.name
+      || book.resourceCategory?.name
+      || (book.bin?.theme && book.bin.theme !== "General" ? book.bin.theme : null)
+      || null;
+    const bin = book.bin || book.resource?.bin;
+    const locationPath = bin
+      ? [bin.shelf?.name || "?", bin.label || `Bin ${bin.number}`, ...(themeName ? [themeName] : [])].join(" › ")
+      : (book.categoryId ? categoryShelfMap.get(book.categoryId) ?? null : null);
+
     return {
       ...book,
       resultType: "book" as const,
       isTeacherResource,
-      themeName: book.resource?.resourceCategory?.name || null,
+      themeName,
+      locationPath,
       availableCopies,
+      themeCheckedOut,
       checkedOutBy: book.checkouts.map((c) => ({
         teacherName: c.teacher.name,
         checkedOutAt: c.checkedOutAt,
@@ -112,16 +161,25 @@ export async function GET(request: NextRequest) {
   });
 
   // Compute resource availability
-  const resourcesWithAvailability = resources.map((r) => ({
-    ...r,
-    resultType: "resource" as const,
-    themeName: r.resourceCategory?.name || null,
-    availableQuantity: r.quantity - r.checkouts.length,
-    checkedOutBy: r.checkouts.map((c) => ({
-      teacherName: c.teacher.name,
-      checkedOutAt: c.checkedOutAt,
-    })),
-  }));
+  const resourcesWithAvailability = resources.map((r) => {
+    const themeName = r.resourceCategory?.name || null;
+    const bin = r.bin;
+    const locationPath = bin
+      ? [bin.shelf?.name || "?", bin.label || `Bin ${bin.number}`, ...(themeName ? [themeName] : [])].join(" › ")
+      : null;
+
+    return {
+      ...r,
+      resultType: "resource" as const,
+      themeName,
+      locationPath,
+      availableQuantity: r.quantity - r.checkouts.length,
+      checkedOutBy: r.checkouts.map((c) => ({
+        teacherName: c.teacher.name,
+        checkedOutAt: c.checkedOutAt,
+      })),
+    };
+  });
 
   const generalBooks = booksWithAvailability.filter((b) => !b.isTeacherResource);
   const teacherResourceBooks = booksWithAvailability.filter((b) => b.isTeacherResource);

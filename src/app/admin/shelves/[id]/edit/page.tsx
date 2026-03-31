@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { groupByTheme } from "@/lib/groupByTheme";
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -22,6 +23,11 @@ interface BookItem {
   author: string;
   categoryId: string | null;
   category: Category | null;
+  resourceCategoryId?: string | null;
+  resourceCategory?: ResourceCategory | null;
+  resource?: {
+    resourceCategory?: ResourceCategory | null;
+  } | null;
 }
 
 interface ResourceItem {
@@ -225,6 +231,7 @@ function ResourceShelfPanel({
   const [newResourceQty, setNewResourceQty] = useState(1);
   const [newResourceThemeId, setNewResourceThemeId] = useState("");
   const [selectedBookId, setSelectedBookId] = useState("");
+  const [selectedBookThemeId, setSelectedBookThemeId] = useState("");
 
   const handleAddBin = async () => {
     setAddingBin(true);
@@ -306,10 +313,11 @@ function ResourceShelfPanel({
       const res = await fetch(`/api/books/${selectedBookId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ binId }),
+        body: JSON.stringify({ binId, resourceCategoryId: selectedBookThemeId || null }),
       });
       if (res.ok) {
         setSelectedBookId("");
+        setSelectedBookThemeId("");
         setAddToBin(null);
         onMessage({ type: "success", text: "Book assigned to bin!" });
         onRefresh();
@@ -380,37 +388,35 @@ function ResourceShelfPanel({
               </div>
             </div>
 
-            {/* Resources in bin */}
-            {bin.resources.length > 0 && (
-              <div>
-                <p className="text-xs font-medium text-gray-500 mb-1">Resources:</p>
-                <div className="space-y-1">
-                  {bin.resources.map((r) => (
-                    <div key={r.id} className="flex justify-between items-center text-sm bg-green-50 px-2 py-1 rounded">
-                      <span>🧩 {r.name}</span>
-                      <span className="text-xs text-gray-500">
-                        {r.resourceCategory?.name} · qty: {r.quantity}
-                      </span>
+            {/* Items grouped by theme */}
+            {(() => {
+              const themes = groupByTheme(bin.resources, bin.books);
+              return themes.length > 0 ? (
+                <div className="space-y-2">
+                  {themes.map((theme) => (
+                    <div key={theme.themeName} className="bg-gray-50 rounded-lg p-2.5">
+                      <p className="text-xs font-medium text-amber-700 mb-1">🎨 {theme.themeName}</p>
+                      <div className="space-y-1">
+                        {theme.resources.map((r) => (
+                          <div key={r.id} className="flex justify-between items-center text-sm bg-green-50 px-2 py-1 rounded">
+                            <span>🧩 {r.name}</span>
+                            <span className="text-xs text-gray-500">
+                              {(r.resourceCategory as ResourceCategory | null)?.name} · qty: {r.quantity}
+                            </span>
+                          </div>
+                        ))}
+                        {theme.books.map((b) => (
+                          <div key={b.id} className="flex justify-between items-center text-sm bg-blue-50 px-2 py-1 rounded">
+                            <span>📖 {b.title}</span>
+                            <span className="text-xs text-gray-500">{b.author}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {/* Books in bin */}
-            {bin.books.length > 0 && (
-              <div>
-                <p className="text-xs font-medium text-gray-500 mb-1">Books:</p>
-                <div className="space-y-1">
-                  {bin.books.map((b) => (
-                    <div key={b.id} className="flex justify-between items-center text-sm bg-blue-50 px-2 py-1 rounded">
-                      <span>📖 {b.title}</span>
-                      <span className="text-xs text-gray-500">{b.author}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+              ) : null;
+            })()}
 
             {/* Add resource/book form */}
             {addTobin === bin.id && addMode === "resource" && (
@@ -478,6 +484,16 @@ function ResourceShelfPanel({
                     <option key={b.id} value={b.id}>
                       {b.title} — {b.author}
                     </option>
+                  ))}
+                </select>
+                <select
+                  value={selectedBookThemeId}
+                  onChange={(e) => setSelectedBookThemeId(e.target.value)}
+                  className="w-full px-3 py-1.5 border rounded-lg text-sm"
+                >
+                  <option value="">Theme (General)</option>
+                  {resourceCategories.map((rc) => (
+                    <option key={rc.id} value={rc.id}>{rc.name}</option>
                   ))}
                 </select>
                 <div className="flex gap-2">

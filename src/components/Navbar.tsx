@@ -6,8 +6,8 @@ import { useState, useEffect } from "react";
 
 const navLinks = [
   { href: "/", label: "📚 Library" },
-  { href: "/books", label: "📖 Books" },
-  { href: "/resources", label: "📦 Resources" },
+  { href: "/books", label: "📖 Books Catalog" },
+  { href: "/resources", label: "📦 Teacher Resources" },
   { href: "/books/submit", label: "📥 Submit Book" },
   { href: "/checkout", label: "✅ Check Out" },
   { href: "/checkin", label: "↩️ Check In" },

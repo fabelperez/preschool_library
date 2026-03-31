@@ -25,6 +25,11 @@ interface ResourceOption {
   shelfName: string;
 }
 
+interface ResourceCategoryOption {
+  id: string;
+  name: string;
+}
+
 interface BookFormProps {
   initialData?: {
     isbn?: string;
@@ -36,6 +41,7 @@ interface BookFormProps {
     qualifierId?: string | null;
     binId?: string | null;
     resourceId?: string | null;
+    resourceCategoryId?: string | null;
   };
   onSubmit: (data: {
     isbn: string;
@@ -47,6 +53,7 @@ interface BookFormProps {
     qualifierId: string;
     binId: string;
     resourceId: string;
+    resourceCategoryId: string;
   }) => Promise<void>;
   submitLabel?: string;
 }
@@ -61,10 +68,12 @@ export default function BookForm({ initialData, onSubmit, submitLabel = "Save Bo
   const [qualifierId, setQualifierId] = useState(initialData?.qualifierId || "");
   const [binId, setBinId] = useState(initialData?.binId || "");
   const [resourceId, setResourceId] = useState(initialData?.resourceId || "");
+  const [resourceCategoryId, setResourceCategoryId] = useState(initialData?.resourceCategoryId || "");
   const [categories, setCategories] = useState<Category[]>([]);
   const [qualifiers, setQualifiers] = useState<Qualifier[]>([]);
   const [bins, setBins] = useState<BinOption[]>([]);
   const [resources, setResources] = useState<ResourceOption[]>([]);
+  const [resourceCategories, setResourceCategories] = useState<ResourceCategoryOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -78,9 +87,15 @@ export default function BookForm({ initialData, onSubmit, submitLabel = "Save Bo
       fetch("/api/qualifiers").then((r) => r.json()),
       fetch("/api/bins").then((r) => r.json()),
       fetch("/api/resources").then((r) => r.json()),
-    ]).then(([cats, quals, binData, resourceData]) => {
+      fetch("/api/resource-categories").then((r) => r.json()),
+    ]).then(([cats, quals, binData, resourceData, rcData]) => {
       setCategories(cats);
       setQualifiers(quals);
+      // Default new items to "General" qualifier
+      if (!initialData?.qualifierId) {
+        const general = quals.find((q: Qualifier) => q.name === "General");
+        if (general) setQualifierId(general.id);
+      }
       setBins(
         binData.map((b: { id: string; label: string | null; number: number; shelf: { name: string } }) => ({
           id: b.id,
@@ -96,6 +111,7 @@ export default function BookForm({ initialData, onSubmit, submitLabel = "Save Bo
           shelfName: r.bin?.shelf?.name || "",
         }))
       );
+      setResourceCategories(rcData);
     }).catch(console.error);
   }, []);
 
@@ -141,7 +157,7 @@ export default function BookForm({ initialData, onSubmit, submitLabel = "Save Bo
     setError(null);
 
     try {
-      await onSubmit({ isbn, title, author, coverImageUrl: coverImageUrl || "", totalCopies, categoryId, qualifierId, binId, resourceId });
+      await onSubmit({ isbn, title, author, coverImageUrl: coverImageUrl || "", totalCopies, categoryId, qualifierId, binId, resourceId, resourceCategoryId });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -297,8 +313,22 @@ export default function BookForm({ initialData, onSubmit, submitLabel = "Save Bo
       </div>
 
       {qualifiers.find((q) => q.id === qualifierId)?.name === "Teacher Resource" && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Attached Resource</label>
+        <>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Theme</label>
+            <select
+              value={resourceCategoryId}
+              onChange={(e) => setResourceCategoryId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="">General</option>
+              {resourceCategories.map((rc) => (
+                <option key={rc.id} value={rc.id}>{rc.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Attached Resource</label>
           <select
             value={resourceId}
             onChange={(e) => {
@@ -322,7 +352,8 @@ export default function BookForm({ initialData, onSubmit, submitLabel = "Save Bo
           <p className="text-xs text-gray-500 mt-1">
             Books attached to a resource will have their availability managed by the resource&apos;s checkouts.
           </p>
-        </div>
+          </div>
+        </>
       )}
 
       <button

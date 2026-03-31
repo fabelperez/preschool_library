@@ -44,6 +44,7 @@ export default function AddBookPage() {
     coverImageUrl: string;
     totalCopies: number;
     categoryId: string;
+    resourceCategoryId: string;
   }) => {
     const res = await fetch("/api/books", {
       method: "POST",

@@ -35,6 +35,10 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
               category: true,
               qualifier: true,
               checkouts: { where: { returnedAt: null } },
+              resource: {
+                include: { resourceCategory: true },
+              },
+              resourceCategory: true,
             },
           },
         },

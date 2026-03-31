@@ -5,6 +5,8 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const query = searchParams.get("q") || "";
   const binId = searchParams.get("binId") || "";
+  const shelfId = searchParams.get("shelfId") || "";
+  const theme = searchParams.get("theme") || "";
   const resourceCategoryId = searchParams.get("resourceCategoryId") || "";
 
   const where: Record<string, unknown> = {};
@@ -16,6 +18,10 @@ export async function GET(request: NextRequest) {
     ];
   }
   if (binId) where.binId = binId;
+  const binFilter: Record<string, unknown> = {};
+  if (shelfId) binFilter.shelfId = shelfId;
+  if (theme) binFilter.theme = theme;
+  if (Object.keys(binFilter).length > 0) where.bin = binFilter;
   if (resourceCategoryId) where.resourceCategoryId = resourceCategoryId;
 
   const resources = await prisma.resource.findMany({
@@ -32,7 +38,11 @@ export async function GET(request: NextRequest) {
         include: { teacher: true },
       },
     },
-    orderBy: { name: "asc" },
+    orderBy: [
+      { bin: { number: "asc" } },
+      { resourceCategory: { name: "asc" } },
+      { name: "asc" },
+    ],
   });
 
   const resourcesWithAvailability = resources.map((r) => ({

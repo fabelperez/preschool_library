@@ -48,13 +48,14 @@ export async function PUT(
 ) {
   try {
     const body = await request.json();
-    const { number, label } = body;
+    const { number, label, theme } = body;
 
     const bin = await prisma.bin.update({
       where: { id: params.id },
       data: {
         ...(number !== undefined && { number }),
         ...(label !== undefined && { label }),
+        ...(theme !== undefined && { theme }),
       },
       include: { shelf: { select: { id: true, name: true } } },
     });

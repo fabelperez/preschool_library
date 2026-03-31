@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { groupByTheme } from "@/lib/groupByTheme";
 
 interface ShelfSection {
   id: string;
@@ -68,7 +69,38 @@ interface DetailSection {
 interface ShelfDetail {
   id: string;
   name: string;
+  type?: string;
   sections: DetailSection[];
+  bins?: DetailBin[];
+}
+
+interface DetailResource {
+  id: string;
+  name: string;
+  description: string | null;
+  quantity: number;
+  resourceCategory: { id: string; name: string } | null;
+  checkouts: { id: string; returnedAt: string | null }[];
+}
+
+interface DetailBinBook {
+  id: string;
+  title: string;
+  author: string;
+  coverImageUrl: string | null;
+  totalCopies: number;
+  checkouts: { id: string; returnedAt: string | null }[];
+  resource?: {
+    resourceCategory?: { id: string; name: string } | null;
+  } | null;
+}
+
+interface DetailBin {
+  id: string;
+  number: number;
+  label: string | null;
+  resources: DetailResource[];
+  books: DetailBinBook[];
 }
 
 // Fallback positions when shelves have no stored layout (all zeros)
@@ -280,32 +312,93 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
 
           {detailLoading ? (
             <div className="p-8 text-center text-gray-500">Loading shelf details...</div>
-          ) : selectedShelf.type === "resource" ? (
+          ) : selectedShelf.type === "resource" && shelfDetail?.bins ? (
             <div className="divide-y">
-              {selectedShelf.bins && selectedShelf.bins.length > 0 ? (
-                selectedShelf.bins.map((bin) => (
-                  <div key={bin.id} className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="font-semibold text-gray-800">
-                        📥 {bin.label || `Bin ${bin.number}`}
-                      </span>
-                      <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
-                        {bin._count.resources} resources
-                      </span>
-                      {bin._count.books > 0 && (
-                        <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
-                          {bin._count.books} books
-                        </span>
+              {shelfDetail.bins.length > 0 ? (
+                shelfDetail.bins.map((bin) => {
+                  const themes = groupByTheme(bin.resources, bin.books);
+                  return (
+                    <div key={bin.id} className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-gray-800">
+                            📥 {bin.label || `Bin ${bin.number}`}
+                          </span>
+                          <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">
+                            {bin.resources.length} resources
+                          </span>
+                          {bin.books.length > 0 && (
+                            <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">
+                              {bin.books.length} books
+                            </span>
+                          )}
+                        </div>
+                        <Link
+                          href={`/resources?binId=${bin.id}`}
+                          className="text-sm text-emerald-600 hover:underline"
+                        >
+                          View all →
+                        </Link>
+                      </div>
+
+                      {themes.length === 0 ? (
+                        <p className="text-sm text-gray-400 italic">Empty bin</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {themes.map((theme) => (
+                            <div key={theme.themeName} className="bg-gray-50 rounded-lg p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-sm font-medium text-gray-700">
+                                  🎨 {theme.themeName}
+                                </span>
+                                <span className="text-xs text-gray-400">
+                                  {theme.resources.length + theme.books.length} items
+                                </span>
+                              </div>
+                              <div className="space-y-1">
+                                {theme.resources.map((r) => {
+                                  const available = r.quantity - (r.checkouts?.filter((c) => !c.returnedAt).length || 0);
+                                  return (
+                                    <Link
+                                      key={r.id}
+                                      href={`/resources/${r.id}`}
+                                      className="flex items-center justify-between text-sm px-2 py-1 rounded hover:bg-white transition-colors"
+                                    >
+                                      <span>🧩 {r.name}</span>
+                                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                        available > 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                                      }`}>
+                                        {available}/{r.quantity}
+                                      </span>
+                                    </Link>
+                                  );
+                                })}
+                                {theme.books.map((b) => {
+                                  const activeCheckouts = b.checkouts?.filter((c: { returnedAt: string | null }) => !c.returnedAt).length || 0;
+                                  const available = (b.totalCopies || 1) - activeCheckouts;
+                                  return (
+                                    <Link
+                                      key={b.id}
+                                      href={`/books/${b.id}`}
+                                      className="flex items-center justify-between text-sm px-2 py-1 rounded hover:bg-white transition-colors"
+                                    >
+                                      <span>📖 {b.title}</span>
+                                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                        available > 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                                      }`}>
+                                        {available}/{b.totalCopies || 1}
+                                      </span>
+                                    </Link>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
-                    <Link
-                      href={`/resources?binId=${bin.id}`}
-                      className="text-sm text-emerald-600 hover:underline"
-                    >
-                      View resources →
-                    </Link>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="p-4 text-sm text-gray-400 italic">No bins on this shelf yet</div>
               )}

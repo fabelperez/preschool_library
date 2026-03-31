@@ -9,7 +9,7 @@ interface Category {
   name: string;
 }
 
-interface BookResult {
+export interface BookResult {
   id: string;
   title: string;
   author: string;
@@ -22,6 +22,7 @@ interface BookResult {
   availableCopies: number;
   category: Category | null;
   checkedOutBy: { teacherName: string; checkedOutAt: string }[];
+  locationPath: string | null;
 }
 
 interface ResourceResult {
@@ -34,6 +35,7 @@ interface ResourceResult {
   availableQuantity: number;
   resourceCategory: Category | null;
   checkedOutBy: { teacherName: string; checkedOutAt: string }[];
+  locationPath: string | null;
 }
 
 interface SearchCounts {
@@ -68,7 +70,7 @@ const resourceFuseOptions: IFuseOptions<ResourceResult> = {
   ignoreLocation: true,
 };
 
-export default function UnifiedSearch() {
+export default function UnifiedSearch({ onSelectBook }: { onSelectBook?: (book: BookResult) => void } = {}) {
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [resourceCategoryId, setResourceCategoryId] = useState("");
@@ -331,7 +333,7 @@ export default function UnifiedSearch() {
           {generalBooks.length > 0 && (
             <ResultSection title="📖 Books" count={generalBooks.length}>
               {generalBooks.map((book) => (
-                <BookCard key={book.id} book={book} />
+                <BookCard key={book.id} book={book} onSelect={onSelectBook} />
               ))}
             </ResultSection>
           )}
@@ -343,7 +345,7 @@ export default function UnifiedSearch() {
               count={teacherResourceBooks.length}
             >
               {teacherResourceBooks.map((book) => (
-                <BookCard key={book.id} book={book} />
+                <BookCard key={book.id} book={book} onSelect={onSelectBook} />
               ))}
             </ResultSection>
           )}
@@ -407,53 +409,68 @@ function ResultSection({
   );
 }
 
-function BookCard({ book }: { book: BookResult }) {
+function BookCard({ book, onSelect }: { book: BookResult; onSelect?: (book: BookResult) => void }) {
   const available = book.availableCopies > 0;
-  return (
-    <Link
-      href={`/books/${book.id}`}
-      className="block p-3 border border-gray-200 rounded-lg hover:border-indigo-300 hover:shadow-sm transition-all bg-white"
-    >
-      <div className="flex gap-3">
-        <div className="w-10 h-14 bg-gray-100 rounded flex items-center justify-center text-lg shrink-0">
-          {book.coverImageUrl ? (
-            <img
-              src={book.coverImageUrl}
-              alt=""
-              className="w-full h-full object-cover rounded"
-            />
-          ) : (
-            "📕"
+  const cardClass = "block w-full text-left p-3 border border-gray-200 rounded-lg hover:border-indigo-300 hover:shadow-sm transition-all bg-white";
+  const content = (
+    <div className="flex gap-3">
+      <div className="w-10 h-14 bg-gray-100 rounded flex items-center justify-center text-lg shrink-0">
+        {book.coverImageUrl ? (
+          <img
+            src={book.coverImageUrl}
+            alt=""
+            className="w-full h-full object-cover rounded"
+          />
+        ) : (
+          "📕"
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-medium text-gray-900 text-sm truncate">
+          {book.title}
+        </p>
+        <p className="text-xs text-gray-500 truncate">{book.author}</p>
+        <div className="flex flex-wrap gap-1 mt-1">
+          {book.category && (
+            <span className="text-xs px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded">
+              {book.category.name}
+            </span>
+          )}
+          {book.themeName && (
+            <span className="text-xs px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded">
+              🎨 {book.themeName}
+            </span>
+          )}
+          <span
+            className={`text-xs px-1.5 py-0.5 rounded ${
+              available
+                ? "bg-green-50 text-green-700"
+                : "bg-red-50 text-red-700"
+            }`}
+          >
+            {book.availableCopies}/{book.totalCopies}
+          </span>
+          {book.locationPath && (
+            <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">
+              📍 {book.locationPath}
+            </span>
           )}
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="font-medium text-gray-900 text-sm truncate">
-            {book.title}
-          </p>
-          <p className="text-xs text-gray-500 truncate">{book.author}</p>
-          <div className="flex flex-wrap gap-1 mt-1">
-            {book.category && (
-              <span className="text-xs px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded">
-                {book.category.name}
-              </span>
-            )}
-            {book.isTeacherResource && book.themeName && (
-              <span className="text-xs px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded">
-                🎨 {book.themeName}
-              </span>
-            )}
-            <span
-              className={`text-xs px-1.5 py-0.5 rounded ${
-                available
-                  ? "bg-green-50 text-green-700"
-                  : "bg-red-50 text-red-700"
-              }`}
-            >
-              {book.availableCopies}/{book.totalCopies}
-            </span>
-          </div>
-        </div>
       </div>
+    </div>
+  );
+
+  if (onSelect) {
+    return (
+      <button type="button" onClick={() => onSelect(book)} className={cardClass}>
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <Link href={`/books/${book.id}`} className={cardClass}>
+      {content}
     </Link>
   );
 }
@@ -489,6 +506,11 @@ function ResourceCard({ resource }: { resource: ResourceResult }) {
           >
             {resource.availableQuantity}/{resource.quantity}
           </span>
+          {resource.locationPath && (
+            <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">
+              📍 {resource.locationPath}
+            </span>
+          )}
         </div>
       </div>
     </Link>

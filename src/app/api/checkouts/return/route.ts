@@ -7,24 +7,23 @@ export async function POST(request: NextRequest) {
     const { checkoutId, isbn } = body;
 
     if (checkoutId) {
-      // Return by checkout ID
       const checkout = await prisma.checkout.update({
         where: { id: checkoutId },
         data: { returnedAt: new Date() },
-        include: { book: true, teacher: true },
+        include: { book: true, resourceCategory: true, teacher: true },
       });
       return NextResponse.json(checkout);
     }
 
     if (isbn) {
-      // Return by ISBN - find the oldest active checkout for this book
+      // Return by ISBN - find the oldest active book checkout for this ISBN
       const book = await prisma.book.findUnique({ where: { isbn } });
       if (!book) {
         return NextResponse.json({ error: "Book not found" }, { status: 404 });
       }
 
       const activeCheckout = await prisma.checkout.findFirst({
-        where: { bookId: book.id, returnedAt: null },
+        where: { bookId: book.id, returnedAt: null, type: "BOOK" },
         orderBy: { checkedOutAt: "asc" },
       });
 
@@ -43,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ error: "checkoutId or isbn is required" }, { status: 400 });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Failed to return book";
+    const message = error instanceof Error ? error.message : "Failed to return item";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
