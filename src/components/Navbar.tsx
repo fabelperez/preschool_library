@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 
 const publicLinks = [
-  { href: "/", label: "📚 Library" },
+  { href: "/library", label: "📚 Library" },
   { href: "/books", label: "📖 Books Catalog" },
   { href: "/resources", label: "📦 Teacher Resource Materials" },
   { href: "/books/submit", label: "📥 Submit Book" },
@@ -25,20 +24,34 @@ const adminLinks = [
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { data: session } = useSession();
-  const isAdmin = (session?.user as { role?: string } | undefined)?.role === "admin";
+  const router = useRouter();
+  const [role, setRole] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
-    if (!isAdmin) return;
+    setRole(sessionStorage.getItem("role"));
+  }, [pathname]);
+
+  const isLibrarian = role === "librarian";
+
+  useEffect(() => {
+    if (!isLibrarian) return;
     fetch("/api/submissions/pending-count")
       .then((r) => r.json())
       .then((data) => setPendingCount(data.count))
       .catch(() => {});
-  }, [pathname, isAdmin]);
+  }, [pathname, isLibrarian]);
 
-  const visibleLinks = isAdmin ? [...publicLinks, ...adminLinks] : publicLinks;
+  // Hide navbar on cover page
+  if (pathname === "/") return null;
+
+  const visibleLinks = isLibrarian ? [...publicLinks, ...adminLinks] : publicLinks;
+
+  const handleSwitchRole = () => {
+    sessionStorage.removeItem("role");
+    router.push("/");
+  };
 
   const renderLink = (link: { href: string; label: string }, className: string) => {
     const isActive = pathname === link.href;
@@ -66,7 +79,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <Link href="/" className="text-xl font-bold">
+            <Link href="/library" className="text-xl font-bold">
               📚 Little Library
             </Link>
           </div>
@@ -76,21 +89,12 @@ export default function Navbar() {
             {visibleLinks.map((link) =>
               renderLink(link, "px-3 py-2 rounded-md text-sm font-medium transition-colors")
             )}
-            {isAdmin ? (
-              <button
-                onClick={() => signOut({ callbackUrl: "/" })}
-                className="px-3 py-2 rounded-md text-sm font-medium text-indigo-200 hover:bg-indigo-500 transition-colors"
-              >
-                🚪 Logout
-              </button>
-            ) : (
-              <Link
-                href="/login"
-                className="px-3 py-2 rounded-md text-sm font-medium text-indigo-200 hover:bg-indigo-500 transition-colors"
-              >
-                🔐 Admin
-              </Link>
-            )}
+            <button
+              onClick={handleSwitchRole}
+              className="px-3 py-2 rounded-md text-sm font-medium text-indigo-200 hover:bg-indigo-500 transition-colors"
+            >
+              🔄 Switch Role
+            </button>
           </div>
 
           {/* Mobile menu button */}
@@ -111,22 +115,12 @@ export default function Navbar() {
           {visibleLinks.map((link) =>
             renderLink(link, "block px-4 py-3 text-sm font-medium")
           )}
-          {isAdmin ? (
-            <button
-              onClick={() => { setMobileMenuOpen(false); signOut({ callbackUrl: "/" }); }}
-              className="block w-full text-left px-4 py-3 text-sm font-medium text-indigo-200 hover:bg-indigo-500"
-            >
-              🚪 Logout
-            </button>
-          ) : (
-            <Link
-              href="/login"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-4 py-3 text-sm font-medium text-indigo-200 hover:bg-indigo-500"
-            >
-              🔐 Admin
-            </Link>
-          )}
+          <button
+            onClick={() => { setMobileMenuOpen(false); handleSwitchRole(); }}
+            className="block w-full text-left px-4 py-3 text-sm font-medium text-indigo-200 hover:bg-indigo-500"
+          >
+            🔄 Switch Role
+          </button>
         </div>
       )}
     </nav>

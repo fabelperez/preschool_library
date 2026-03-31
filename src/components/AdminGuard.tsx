@@ -1,30 +1,31 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function AdminGuard({ children }: { children: React.ReactNode }) {
-  const { data: session, status } = useSession();
   const router = useRouter();
-  const role = (session?.user as { role?: string } | undefined)?.role;
+  const [allowed, setAllowed] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (status === "loading") return;
-    if (!session || role !== "admin") {
-      router.replace("/login");
+    const role = sessionStorage.getItem("role");
+    if (role === "librarian") {
+      setAllowed(true);
+    } else {
+      setAllowed(false);
+      router.replace("/");
     }
-  }, [session, status, role, router]);
+  }, [router]);
 
-  if (status === "loading") {
+  if (allowed === null) {
     return <div className="text-center py-12 text-gray-500">Loading…</div>;
   }
 
-  if (!session || role !== "admin") {
+  if (!allowed) {
     return (
       <div className="text-center py-12">
         <h1 className="text-xl font-bold text-red-600 mb-2">🔒 Access Denied</h1>
-        <p className="text-gray-500">You must be an admin to view this page.</p>
+        <p className="text-gray-500">You must be a librarian to view this page.</p>
       </div>
     );
   }

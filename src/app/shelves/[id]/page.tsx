@@ -44,7 +44,7 @@ export default function ShelfDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/" className="text-indigo-600 hover:underline text-sm">← Back to library</Link>
+      <Link href="/library" className="text-indigo-600 hover:underline text-sm">← Back to library</Link>
 
       <h1 className="text-2xl font-bold text-gray-900">🗄️ {shelf.name}</h1>
 
