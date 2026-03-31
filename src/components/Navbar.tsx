@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import { useState, useEffect } from "react";
 
-const navLinks = [
+const publicLinks = [
   { href: "/", label: "📚 Library" },
   { href: "/books", label: "📖 Books Catalog" },
   { href: "/resources", label: "📦 Teacher Resource Materials" },
@@ -12,6 +13,9 @@ const navLinks = [
   { href: "/checkout", label: "✅ Check Out" },
   { href: "/checkin", label: "↩️ Check In" },
   { href: "/checked-out", label: "📊 Checked Out & Popular" },
+];
+
+const adminLinks = [
   { href: "/admin/submissions", label: "📋 Submissions" },
   { href: "/admin/shelves", label: "🗄️ Shelves" },
   { href: "/admin/resources", label: "📦 Resources" },
@@ -21,15 +25,20 @@ const navLinks = [
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const isAdmin = (session?.user as { role?: string } | undefined)?.role === "admin";
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
+    if (!isAdmin) return;
     fetch("/api/submissions/pending-count")
       .then((r) => r.json())
       .then((data) => setPendingCount(data.count))
       .catch(() => {});
-  }, [pathname]);
+  }, [pathname, isAdmin]);
+
+  const visibleLinks = isAdmin ? [...publicLinks, ...adminLinks] : publicLinks;
 
   const renderLink = (link: { href: string; label: string }, className: string) => {
     const isActive = pathname === link.href;
@@ -64,8 +73,23 @@ export default function Navbar() {
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center space-x-1">
-            {navLinks.map((link) =>
+            {visibleLinks.map((link) =>
               renderLink(link, "px-3 py-2 rounded-md text-sm font-medium transition-colors")
+            )}
+            {isAdmin ? (
+              <button
+                onClick={() => signOut({ callbackUrl: "/" })}
+                className="px-3 py-2 rounded-md text-sm font-medium text-indigo-200 hover:bg-indigo-500 transition-colors"
+              >
+                🚪 Logout
+              </button>
+            ) : (
+              <Link
+                href="/login"
+                className="px-3 py-2 rounded-md text-sm font-medium text-indigo-200 hover:bg-indigo-500 transition-colors"
+              >
+                🔐 Admin
+              </Link>
             )}
           </div>
 
@@ -84,8 +108,24 @@ export default function Navbar() {
       {/* Mobile menu */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-indigo-500">
-          {navLinks.map((link) =>
+          {visibleLinks.map((link) =>
             renderLink(link, "block px-4 py-3 text-sm font-medium")
+          )}
+          {isAdmin ? (
+            <button
+              onClick={() => { setMobileMenuOpen(false); signOut({ callbackUrl: "/" }); }}
+              className="block w-full text-left px-4 py-3 text-sm font-medium text-indigo-200 hover:bg-indigo-500"
+            >
+              🚪 Logout
+            </button>
+          ) : (
+            <Link
+              href="/login"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-4 py-3 text-sm font-medium text-indigo-200 hover:bg-indigo-500"
+            >
+              🔐 Admin
+            </Link>
           )}
         </div>
       )}
