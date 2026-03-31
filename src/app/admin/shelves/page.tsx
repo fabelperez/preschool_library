@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import AdminHeader from "@/components/AdminHeader";
 
 interface Category {
   id: string;
@@ -150,23 +151,27 @@ export default function ManageShelvesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">🗄️ Manage Shelves</h1>
-        <div className="flex gap-2">
-          <Link
-            href="/admin/shelves/layout"
-            className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium"
-          >
-            📐 Edit Room Layout
-          </Link>
-          <button
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
-          >
-            {showAddForm ? "Cancel" : "+ Add Shelf"}
-          </button>
-        </div>
-      </div>
+      <AdminHeader
+        icon="🗄️"
+        title="Manage Shelves"
+        description="Configure library shelves, sections, and categories"
+        action={
+          <div className="flex gap-2">
+            <Link
+              href="/admin/shelves/layout"
+              className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium"
+            >
+              📐 Edit Room Layout
+            </Link>
+            <button
+              onClick={() => setShowAddForm(!showAddForm)}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+            >
+              {showAddForm ? "Cancel" : "+ Add Shelf"}
+            </button>
+          </div>
+        }
+      />
 
       {message && (
         <div className={`p-4 rounded-lg ${

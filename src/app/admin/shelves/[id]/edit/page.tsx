@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import AdminHeader from "@/components/AdminHeader";
 import { groupByTheme } from "@/lib/groupByTheme";
 
 // ─── Types ───────────────────────────────────────────────
@@ -135,8 +136,8 @@ export default function EditShelfPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Link href="/admin/shelves" className="text-sm text-gray-500 hover:text-gray-700">← Back</Link>
-        <h1 className="text-2xl font-bold text-gray-900">✏️ Edit Shelf</h1>
       </div>
+      <AdminHeader icon="✏️" title="Edit Shelf" description={`Editing shelf: ${shelf?.name || ""}`} />
 
       {message && (
         <div className={`p-3 rounded-lg text-sm ${message.type === "success" ? "bg-green-50 border border-green-200 text-green-700" : "bg-red-50 border border-red-200 text-red-700"}`}>

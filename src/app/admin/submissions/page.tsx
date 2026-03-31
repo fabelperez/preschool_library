@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AdminHeader from "@/components/AdminHeader";
 
 interface Submission {
   id: string;
@@ -129,7 +130,7 @@ export default function AdminSubmissionsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">📋 Book Submissions</h1>
+      <AdminHeader icon="📋" title="Book Submissions" description="Review and approve teacher-submitted books" />
 
       {/* Filter tabs */}
       <div className="flex gap-2">

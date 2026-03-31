@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AdminHeader from "@/components/AdminHeader";
 
 interface Checkout {
   book: { title: string };
@@ -57,15 +58,19 @@ export default function ManageTeachersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">👩‍🏫 Manage Teachers</h1>
-        <button
-          onClick={() => setShowAddForm(!showAddForm)}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
-        >
-          {showAddForm ? "Cancel" : "+ Add Teacher"}
-        </button>
-      </div>
+      <AdminHeader
+        icon="👩‍🏫"
+        title="Manage Teachers"
+        description="Add, remove, and view teacher checkout activity"
+        action={
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+          >
+            {showAddForm ? "Cancel" : "+ Add Teacher"}
+          </button>
+        }
+      />
 
       {message && (
         <div className={`p-4 rounded-lg ${

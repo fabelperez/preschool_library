@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import AdminHeader from "@/components/AdminHeader";
 
 interface ResourceCategory {
   id: string;
@@ -128,15 +129,19 @@ export default function AdminResourcesPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">📦 Manage Resources</h1>
-        <Link
-          href="/resources"
-          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
-        >
-          View Resources →
-        </Link>
-      </div>
+      <AdminHeader
+        icon="📦"
+        title="Manage Resources"
+        description="Organize shelves, themes, and teacher resource materials"
+        action={
+          <Link
+            href="/resources"
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+          >
+            View Resources →
+          </Link>
+        }
+      />
 
       {message && (
         <div className={`p-4 rounded-lg border ${
