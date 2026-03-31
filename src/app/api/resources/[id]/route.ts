@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCheckedOutThemeIds } from "@/lib/checkout-rules";
 
 export async function GET(
   _request: NextRequest,
@@ -26,10 +27,15 @@ export async function GET(
   }
 
   const activeCheckouts = resource.checkouts.filter((c) => !c.returnedAt);
+  const checkedOutThemes = await getCheckedOutThemeIds();
+  const themeCheckedOut = resource.resourceCategoryId
+    ? checkedOutThemes.has(resource.resourceCategoryId)
+    : false;
 
   return NextResponse.json({
     ...resource,
-    availableQuantity: resource.quantity - activeCheckouts.length,
+    themeCheckedOut,
+    availableQuantity: themeCheckedOut ? 0 : resource.quantity - activeCheckouts.length,
     checkedOutBy: activeCheckouts.map((c) => ({
       teacherName: c.teacher.name,
       checkedOutAt: c.checkedOutAt,
