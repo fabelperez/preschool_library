@@ -71,5 +71,35 @@ export async function GET(request: NextRequest) {
       };
     });
 
-  return NextResponse.json({ topBooks, topThemes, days });
+  // Top resources by checkout count in the time window
+  const resourceCheckouts = await prisma.resourceCheckout.groupBy({
+    by: ["resourceId"],
+    where: {
+      checkedOutAt: { gte: since },
+    },
+    _count: { id: true },
+    orderBy: { _count: { id: "desc" } },
+    take: 20,
+  });
+
+  const resourceIds = resourceCheckouts.map((c) => c.resourceId);
+  const resources = await prisma.resource.findMany({
+    where: { id: { in: resourceIds } },
+    select: { id: true, name: true, resourceCategory: { select: { name: true } } },
+  });
+  const resourceMap = new Map(resources.map((r) => [r.id, r]));
+
+  const topResources = resourceCheckouts
+    .filter((c) => resourceMap.has(c.resourceId))
+    .map((c) => {
+      const resource = resourceMap.get(c.resourceId)!;
+      return {
+        resourceId: c.resourceId,
+        count: c._count.id,
+        name: resource.name,
+        category: resource.resourceCategory.name,
+      };
+    });
+
+  return NextResponse.json({ topBooks, topThemes, topResources, days });
 }

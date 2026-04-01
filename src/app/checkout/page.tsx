@@ -3,6 +3,8 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import BarcodeScanner from "@/components/BarcodeScanner";
+import ResourceCheckoutForm from "@/components/ResourceCheckoutForm";
+import { useRole } from "@/components/RoleProvider";
 
 interface Book {
   id: string;
@@ -25,11 +27,13 @@ interface ResourceCategory {
   name: string;
 }
 
-type CheckoutMode = "book" | "theme";
+type CheckoutMode = "book" | "theme" | "resource";
 
 function CheckoutContent() {
   const searchParams = useSearchParams();
   const preselectedBookId = searchParams.get("bookId");
+  const { role, teacherId: sessionTeacherId, teacherName: sessionTeacherName } = useRole();
+  const isTeacherLocked = role === "teacher" && !!sessionTeacherId;
   
   const [mode, setMode] = useState<CheckoutMode>("book");
   const [books, setBooks] = useState<Book[]>([]);
@@ -41,6 +45,13 @@ function CheckoutContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [message, setMessage] = useState<{ type: "success" | "error" | "warning"; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Lock teacher selection when in teacher mode
+  useEffect(() => {
+    if (isTeacherLocked) {
+      setSelectedTeacherId(sessionTeacherId);
+    }
+  }, [isTeacherLocked, sessionTeacherId]);
 
   const fetchBooks = () =>
     fetch("/api/books").then((r) => r.json()).then((data) => {
@@ -169,6 +180,14 @@ function CheckoutContent() {
         >
           📚 Teacher Resource Theme
         </button>
+        <button
+          onClick={() => { setMode("resource"); setMessage(null); }}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            mode === "resource" ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          📦 Individual Resource
+        </button>
       </div>
 
       {message && (
@@ -242,18 +261,22 @@ function CheckoutContent() {
           {selectedBook && selectedBook.availableCopies > 0 && (
             <div className="bg-green-50 border border-green-200 rounded-xl p-5">
               <h2 className="font-semibold text-green-800 mb-3">Step 2: Who&apos;s Checking Out?</h2>
-              <select
-                value={selectedTeacherId}
-                onChange={(e) => setSelectedTeacherId(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="">Select a teacher...</option>
-                {teachers.map((teacher) => (
-                  <option key={teacher.id} value={teacher.id}>
-                    {teacher.name}
-                  </option>
-                ))}
-              </select>
+              {isTeacherLocked ? (
+                <p className="text-green-700 font-medium">👋 Checking out as {sessionTeacherName}</p>
+              ) : (
+                <select
+                  value={selectedTeacherId}
+                  onChange={(e) => setSelectedTeacherId(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="">Select a teacher...</option>
+                  {teachers.map((teacher) => (
+                    <option key={teacher.id} value={teacher.id}>
+                      {teacher.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           )}
 
@@ -296,18 +319,22 @@ function CheckoutContent() {
           {selectedThemeId && (
             <div className="bg-green-50 border border-green-200 rounded-xl p-5">
               <h2 className="font-semibold text-green-800 mb-3">Step 2: Who&apos;s Checking Out?</h2>
-              <select
-                value={selectedTeacherId}
-                onChange={(e) => setSelectedTeacherId(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              >
-                <option value="">Select a teacher...</option>
-                {teachers.map((teacher) => (
-                  <option key={teacher.id} value={teacher.id}>
-                    {teacher.name}
-                  </option>
-                ))}
-              </select>
+              {isTeacherLocked ? (
+                <p className="text-green-700 font-medium">👋 Checking out as {sessionTeacherName}</p>
+              ) : (
+                <select
+                  value={selectedTeacherId}
+                  onChange={(e) => setSelectedTeacherId(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="">Select a teacher...</option>
+                  {teachers.map((teacher) => (
+                    <option key={teacher.id} value={teacher.id}>
+                      {teacher.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           )}
 
@@ -322,6 +349,9 @@ function CheckoutContent() {
             </button>
           )}
         </>
+      )}
+      {mode === "resource" && (
+        <ResourceCheckoutForm teachers={teachers} />
       )}
     </div>
   );

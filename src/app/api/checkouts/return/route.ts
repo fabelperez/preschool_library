@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { checkoutId, isbn } = body;
+    const { checkoutId, isbn, teacherId } = body;
 
     if (checkoutId) {
       const checkout = await prisma.checkout.update({
@@ -23,7 +23,12 @@ export async function POST(request: NextRequest) {
       }
 
       const activeCheckout = await prisma.checkout.findFirst({
-        where: { bookId: book.id, returnedAt: null, type: "BOOK" },
+        where: {
+          bookId: book.id,
+          returnedAt: null,
+          type: "BOOK",
+          ...(teacherId ? { teacherId } : {}),
+        },
         orderBy: { checkedOutAt: "asc" },
       });
 

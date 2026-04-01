@@ -11,6 +11,17 @@ interface ActiveCheckout {
   teacher: { name: string };
 }
 
+interface ResourceCheckout {
+  id: string;
+  checkedOutAt: string;
+  resource: {
+    name: string;
+    resourceCategory: { name: string };
+    bin: { number: number; label: string | null; shelf: { name: string } };
+  };
+  teacher: { name: string };
+}
+
 interface TopBook {
   bookId: string;
   count: number;
@@ -27,6 +38,13 @@ interface TopTheme {
   itemCount: number;
 }
 
+interface TopResource {
+  resourceId: string;
+  count: number;
+  name: string;
+  category: string;
+}
+
 type Tab = "active" | "popular";
 type TimeWindow = 7 | 30 | 90;
 
@@ -35,6 +53,7 @@ export default function CheckedOutPage() {
 
   // Active checkouts state
   const [checkouts, setCheckouts] = useState<ActiveCheckout[]>([]);
+  const [resourceCheckouts, setResourceCheckouts] = useState<ResourceCheckout[]>([]);
   const [loadingActive, setLoadingActive] = useState(true);
   const [expandedThemes, setExpandedThemes] = useState<Set<string>>(new Set());
   const [themeItems, setThemeItems] = useState<Record<string, { resources: string[]; books: string[] }>>({});
@@ -42,14 +61,20 @@ export default function CheckedOutPage() {
   // Popular state
   const [topBooks, setTopBooks] = useState<TopBook[]>([]);
   const [topThemes, setTopThemes] = useState<TopTheme[]>([]);
+  const [topResources, setTopResources] = useState<TopResource[]>([]);
   const [timeWindow, setTimeWindow] = useState<TimeWindow>(30);
   const [loadingPopular, setLoadingPopular] = useState(false);
 
   useEffect(() => {
     setLoadingActive(true);
-    fetch("/api/checkouts")
-      .then((r) => r.json())
-      .then(setCheckouts)
+    Promise.all([
+      fetch("/api/checkouts").then((r) => r.json()),
+      fetch("/api/resource-checkouts").then((r) => r.json()),
+    ])
+      .then(([bookData, resourceData]) => {
+        setCheckouts(bookData);
+        setResourceCheckouts(resourceData);
+      })
       .finally(() => setLoadingActive(false));
   }, []);
 
@@ -61,6 +86,7 @@ export default function CheckedOutPage() {
       .then((data) => {
         setTopBooks(data.topBooks);
         setTopThemes(data.topThemes);
+        setTopResources(data.topResources || []);
       })
       .finally(() => setLoadingPopular(false));
   }, [tab, timeWindow]);
@@ -120,7 +146,7 @@ export default function CheckedOutPage() {
         <div className="space-y-6">
           {loadingActive ? (
             <p className="text-gray-500 text-center py-8">Loading…</p>
-          ) : checkouts.length === 0 ? (
+          ) : checkouts.length === 0 && resourceCheckouts.length === 0 ? (
             <p className="text-gray-500 bg-gray-50 rounded-lg p-8 text-center">
               Nothing is currently checked out 🎉
             </p>
@@ -242,6 +268,48 @@ export default function CheckedOutPage() {
                   </div>
                 </div>
               )}
+              {/* Resource checkouts */}
+              {resourceCheckouts.length > 0 && (
+                <div>
+                  <h2 className="font-semibold text-gray-800 mb-3">
+                    📦 Individual Resources ({resourceCheckouts.length})
+                  </h2>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-gray-50 text-left text-gray-600">
+                          <th className="px-4 py-2 font-medium">Resource</th>
+                          <th className="px-4 py-2 font-medium">Category</th>
+                          <th className="px-4 py-2 font-medium">Location</th>
+                          <th className="px-4 py-2 font-medium">Checked Out By</th>
+                          <th className="px-4 py-2 font-medium">Date</th>
+                          <th className="px-4 py-2 font-medium">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {resourceCheckouts.map((co) => (
+                          <tr key={co.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 font-medium">{co.resource.name}</td>
+                            <td className="px-4 py-3 text-gray-600">{co.resource.resourceCategory.name}</td>
+                            <td className="px-4 py-3 text-gray-500">
+                              {co.resource.bin.shelf.name} → {co.resource.bin.label || `Bin ${co.resource.bin.number}`}
+                            </td>
+                            <td className="px-4 py-3">{co.teacher.name}</td>
+                            <td className="px-4 py-3 text-gray-500">
+                              {new Date(co.checkedOutAt).toLocaleDateString()}
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+                                Checked Out
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -328,6 +396,37 @@ export default function CheckedOutPage() {
                         </div>
                         <span className="text-sm font-semibold text-amber-600 whitespace-nowrap">
                           {theme.count}×
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Top Resources */}
+              <div className="bg-white border rounded-xl p-5">
+                <h2 className="font-semibold text-gray-800 mb-4">📦 Top Resources</h2>
+                {topResources.length === 0 ? (
+                  <p className="text-gray-400 text-sm text-center py-4">
+                    No resource checkouts in this period.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {topResources.map((resource, i) => (
+                      <div key={resource.resourceId} className="flex items-center gap-3">
+                        <span className={`text-lg font-bold w-7 text-center ${
+                          i === 0 ? "text-yellow-500" : i === 1 ? "text-gray-400" : i === 2 ? "text-amber-600" : "text-gray-300"
+                        }`}>
+                          {i + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{resource.name}</div>
+                          <div className="text-xs text-gray-500 truncate">
+                            {resource.category}
+                          </div>
+                        </div>
+                        <span className="text-sm font-semibold text-green-600 whitespace-nowrap">
+                          {resource.count}×
                         </span>
                       </div>
                     ))}

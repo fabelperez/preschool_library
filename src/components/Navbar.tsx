@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
+import { useRole } from "@/components/RoleProvider";
 
 const publicLinks = [
   { href: "/library", label: "📚 Library" },
@@ -11,10 +12,12 @@ const publicLinks = [
   { href: "/books/submit", label: "📥 Submit Book" },
   { href: "/checkout", label: "✅ Check Out" },
   { href: "/checkin", label: "↩️ Check In" },
+  { href: "/my-checkouts", label: "📋 My Items" },
   { href: "/checked-out", label: "📊 Checked Out & Popular" },
 ];
 
 const adminLinks = [
+  { href: "/admin/checkouts", label: "📋 Active Checkouts" },
   { href: "/admin/submissions", label: "📋 Submissions" },
   { href: "/admin/shelves", label: "🗄️ Shelves" },
   { href: "/admin/resources", label: "📦 Resources" },
@@ -24,21 +27,9 @@ const adminLinks = [
 
 export default function Navbar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const [role, setRole] = useState<string | null>(null);
-  const [checked, setChecked] = useState(false);
+  const { role, teacherName, clearRole } = useRole();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
-
-  useEffect(() => {
-    const stored = sessionStorage.getItem("role");
-    setRole(stored);
-    setChecked(true);
-    // Redirect to cover page if no role selected (except when already on cover)
-    if (!stored && pathname !== "/") {
-      router.replace("/");
-    }
-  }, [pathname, router]);
 
   const isLibrarian = role === "librarian";
 
@@ -50,14 +41,13 @@ export default function Navbar() {
       .catch(() => {});
   }, [pathname, isLibrarian]);
 
-  // Hide navbar on cover page or before role is checked
-  if (pathname === "/" || !checked || !role) return null;
+  // Hide navbar on cover page or when no role selected
+  if (pathname === "/" || !role) return null;
 
   const visibleLinks = isLibrarian ? [...publicLinks, ...adminLinks] : publicLinks;
 
   const handleSwitchRole = () => {
-    sessionStorage.removeItem("role");
-    router.push("/");
+    clearRole();
   };
 
   const renderLink = (link: { href: string; label: string }, className: string) => {
@@ -96,11 +86,16 @@ export default function Navbar() {
             {visibleLinks.map((link) =>
               renderLink(link, "px-3 py-2 rounded-md text-sm font-medium transition-colors")
             )}
+            {teacherName && (
+              <span className="px-3 py-2 text-sm font-medium text-indigo-200">
+                👩‍🏫 {teacherName}
+              </span>
+            )}
             <button
               onClick={handleSwitchRole}
               className="px-3 py-2 rounded-md text-sm font-medium text-indigo-200 hover:bg-indigo-500 transition-colors"
             >
-              🔄 Switch Role
+              🔄 Switch
             </button>
           </div>
 
@@ -121,6 +116,11 @@ export default function Navbar() {
         <div className="md:hidden border-t border-indigo-500">
           {visibleLinks.map((link) =>
             renderLink(link, "block px-4 py-3 text-sm font-medium")
+          )}
+          {teacherName && (
+            <span className="block px-4 py-3 text-sm font-medium text-indigo-200">
+              👩‍🏫 {teacherName}
+            </span>
           )}
           <button
             onClick={() => { setMobileMenuOpen(false); handleSwitchRole(); }}

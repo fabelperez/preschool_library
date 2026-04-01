@@ -1,68 +1,136 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRole } from "@/components/RoleProvider";
 import BarcodeScanner from "@/components/BarcodeScanner";
 
-interface ActiveCheckout {
+interface CheckoutRecord {
   id: string;
-  type: string;
+  type: "book" | "theme" | "resource";
+  itemName: string;
+  itemDetail: string;
+  isbn: string | null;
+  teacherId: string;
+  teacherName: string;
   checkedOutAt: string;
-  book: { id: string; title: string; author: string; isbn: string | null; category: { name: string } | null } | null;
-  resourceCategory: { id: string; name: string } | null;
-  teacher: { name: string };
+  availability: { available: number; total: number } | null;
 }
 
-export default function CheckinPage() {
-  const [checkouts, setCheckouts] = useState<ActiveCheckout[]>([]);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [loading, setLoading] = useState(true);
+interface Teacher {
+  id: string;
+  name: string;
+}
 
-  const fetchCheckouts = () => {
-    fetch("/api/checkouts")
-      .then((r) => r.json())
-      .then(setCheckouts)
+const TYPE_ICON: Record<string, string> = {
+  book: "📖",
+  theme: "🎨",
+  resource: "📦",
+};
+
+const TYPE_LABEL: Record<string, string> = {
+  book: "Books",
+  theme: "Themes",
+  resource: "Resources",
+};
+
+export default function CheckinPage() {
+  const { role, teacherId: sessionTeacherId, teacherName: sessionTeacherName } = useRole();
+  const isLibrarian = role === "librarian";
+
+  const [checkouts, setCheckouts] = useState<CheckoutRecord[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [selectedTeacherId, setSelectedTeacherId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [returning, setReturning] = useState<string | null>(null);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  // Auto-fill teacher identity when locked to session
+  useEffect(() => {
+    if (!isLibrarian && sessionTeacherId) {
+      setSelectedTeacherId(sessionTeacherId);
+    }
+  }, [isLibrarian, sessionTeacherId]);
+
+  const fetchData = () => {
+    setLoading(true);
+    Promise.all([
+      fetch("/api/active-checkouts").then((r) => r.json()),
+      fetch("/api/teachers").then((r) => r.json()),
+    ])
+      .then(([checkoutsData, teachersData]) => {
+        setCheckouts(checkoutsData);
+        setTeachers(teachersData);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchCheckouts(); }, []);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  const handleScan = async (isbn: string) => {
-    setMessage(null);
-    try {
-      const res = await fetch("/api/checkouts/return", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isbn }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setMessage({ type: "success", text: `"${data.book.title}" returned by ${data.teacher.name}!` });
-        fetchCheckouts();
-      } else {
-        const err = await res.json();
-        setMessage({ type: "error", text: err.error || "Return failed" });
-      }
-    } catch {
-      setMessage({ type: "error", text: "Something went wrong" });
-    }
+  const canReturn = (co: CheckoutRecord) => {
+    if (isLibrarian) return true;
+    return selectedTeacherId === co.teacherId;
   };
 
-  const handleReturnById = async (co: ActiveCheckout) => {
+  const handleReturn = async (co: CheckoutRecord) => {
+    setReturning(co.id);
+    setMessage(null);
+
+    const endpoint =
+      co.type === "resource"
+        ? "/api/resource-checkouts/return"
+        : "/api/checkouts/return";
+
     try {
-      const res = await fetch("/api/checkouts/return", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ checkoutId: co.id }),
       });
 
       if (res.ok) {
-        const label = co.type === "THEME"
-          ? `Theme "${co.resourceCategory?.name}"`
-          : `"${co.book?.title}"`;
-        setMessage({ type: "success", text: `${label} returned by ${co.teacher.name}!` });
-        fetchCheckouts();
+        setMessage({
+          type: "success",
+          text: `${TYPE_ICON[co.type]} "${co.itemName}" returned by ${co.teacherName}!`,
+        });
+        fetchData();
+      } else {
+        const err = await res.json();
+        setMessage({ type: "error", text: err.error || "Return failed" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Something went wrong" });
+    } finally {
+      setReturning(null);
+    }
+  };
+
+  const handleScan = async (isbn: string) => {
+    setMessage(null);
+
+    // In teacher mode, restrict to their checkout
+    const teacherFilter =
+      !isLibrarian && selectedTeacherId ? selectedTeacherId : undefined;
+
+    try {
+      const res = await fetch("/api/checkouts/return", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isbn, ...(teacherFilter && { teacherId: teacherFilter }) }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setMessage({
+          type: "success",
+          text: `📖 "${data.book.title}" returned by ${data.teacher.name}!`,
+        });
+        fetchData();
       } else {
         const err = await res.json();
         setMessage({ type: "error", text: err.error || "Return failed" });
@@ -72,82 +140,168 @@ export default function CheckinPage() {
     }
   };
 
-  const bookCheckouts = checkouts.filter((co) => co.type === "BOOK" || !co.type);
-  const themeCheckouts = checkouts.filter((co) => co.type === "THEME");
+  // Group checkouts by type
+  const grouped = checkouts.reduce(
+    (acc, co) => {
+      acc[co.type] = acc[co.type] || [];
+      acc[co.type].push(co);
+      return acc;
+    },
+    {} as Record<string, CheckoutRecord[]>
+  );
+
+  const teacherReady = isLibrarian || selectedTeacherId;
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">↩️ Check In</h1>
+      <h1 className="text-2xl font-bold text-gray-900">↩️ Return Items</h1>
 
       {message && (
-        <div className={`p-4 rounded-lg ${
-          message.type === "success" ? "bg-green-50 border border-green-200 text-green-700" : "bg-red-50 border border-red-200 text-red-700"
-        }`}>
+        <div
+          className={`p-4 rounded-lg ${
+            message.type === "success"
+              ? "bg-green-50 border border-green-200 text-green-700"
+              : "bg-red-50 border border-red-200 text-red-700"
+          }`}
+        >
           {message.text}
         </div>
       )}
 
-      <div className="bg-purple-50 border border-purple-200 rounded-xl p-5">
-        <h2 className="font-semibold text-purple-800 mb-3">Scan Book Barcode to Return</h2>
-        <BarcodeScanner onScan={handleScan} placeholder="Scan ISBN to check in..." />
-      </div>
-
-      {/* Theme checkouts */}
-      {themeCheckouts.length > 0 && (
-        <div>
-          <h2 className="font-semibold text-gray-800 mb-3">📚 Checked Out Themes ({themeCheckouts.length})</h2>
-          <div className="space-y-2">
-            {themeCheckouts.map((co) => (
-              <div key={co.id} className="flex justify-between items-center bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <div>
-                  <div className="font-medium">🎨 {co.resourceCategory?.name}</div>
-                  <div className="text-sm text-gray-500">
-                    Checked out by <span className="font-medium">{co.teacher.name}</span> on{" "}
-                    {new Date(co.checkedOutAt).toLocaleDateString()}
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleReturnById(co)}
-                  className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm whitespace-nowrap"
-                >
-                  Return Theme
-                </button>
-              </div>
-            ))}
-          </div>
+      {/* Teacher identification (teacher role only) */}
+      {!isLibrarian && (
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-5">
+          {sessionTeacherId ? (
+            <p className="font-semibold text-purple-800">
+              👋 Returning items as {sessionTeacherName}
+            </p>
+          ) : (
+            <>
+              <h2 className="font-semibold text-purple-800 mb-2">
+                👋 Who are you?
+              </h2>
+              <p className="text-sm text-purple-600 mb-3">
+                Select your name to return your items. You can see what everyone has
+                checked out!
+              </p>
+              <select
+                value={selectedTeacherId}
+                onChange={(e) => setSelectedTeacherId(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="">Select your name...</option>
+                {teachers.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
         </div>
       )}
 
-      {/* Book checkouts */}
-      <div>
-        <h2 className="font-semibold text-gray-800 mb-3">📖 Checked Out Books ({bookCheckouts.length})</h2>
-        
-        {loading ? (
-          <p className="text-gray-500">Loading...</p>
-        ) : bookCheckouts.length === 0 ? (
-          <p className="text-gray-500 bg-gray-50 rounded-lg p-6 text-center">All books are returned! 🎉</p>
-        ) : (
-          <div className="space-y-2">
-            {bookCheckouts.map((co) => (
-              <div key={co.id} className="flex justify-between items-center bg-white border rounded-lg p-4">
-                <div>
-                  <div className="font-medium">{co.book?.title}</div>
-                  <div className="text-sm text-gray-500">
-                    by {co.book?.author} • Checked out by <span className="font-medium">{co.teacher.name}</span> on{" "}
-                    {new Date(co.checkedOutAt).toLocaleDateString()}
-                  </div>
+      {/* Barcode scanner */}
+      {teacherReady && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-5">
+          <h2 className="font-semibold text-indigo-800 mb-3">
+            Scan Book Barcode to Return
+          </h2>
+          <BarcodeScanner
+            onScan={handleScan}
+            placeholder="Scan ISBN to check in..."
+          />
+        </div>
+      )}
+
+      {/* Checkout list */}
+      {loading ? (
+        <p className="text-gray-500 text-center py-8">Loading checkouts…</p>
+      ) : checkouts.length === 0 ? (
+        <p className="text-gray-500 bg-gray-50 rounded-lg p-8 text-center">
+          Nothing is currently checked out — everything&apos;s home! 🎉
+        </p>
+      ) : (
+        <div className="space-y-6">
+          {(["book", "theme", "resource"] as const).map((type) => {
+            const items = grouped[type];
+            if (!items || items.length === 0) return null;
+
+            return (
+              <div key={type}>
+                <h2 className="font-semibold text-gray-800 mb-3">
+                  {TYPE_ICON[type]} {TYPE_LABEL[type]} ({items.length})
+                </h2>
+                <div className="space-y-2">
+                  {items.map((co) => {
+                    const isOwn = selectedTeacherId === co.teacherId;
+                    const canReturnThis = canReturn(co);
+
+                    return (
+                      <div
+                        key={co.id}
+                        className={`flex items-center justify-between p-4 border rounded-xl transition-colors ${
+                          !isLibrarian && isOwn
+                            ? "bg-purple-50 border-purple-200"
+                            : "bg-white border-gray-200"
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg flex-shrink-0">
+                              {TYPE_ICON[co.type]}
+                            </span>
+                            <span className="font-medium text-gray-900 truncate">
+                              {co.itemName}
+                            </span>
+                            {co.availability && (
+                              <span
+                                className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
+                                  co.availability.available > 0
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-red-100 text-red-700"
+                                }`}
+                              >
+                                {co.availability.available}/
+                                {co.availability.total}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-500 mt-0.5 ml-7">
+                            {co.itemDetail && <>{co.itemDetail} · </>}
+                            <span className="font-medium">
+                              {co.teacherName}
+                            </span>{" "}
+                            ·{" "}
+                            {new Date(co.checkedOutAt).toLocaleDateString()}
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleReturn(co)}
+                          disabled={!canReturnThis || returning === co.id}
+                          className={`ml-3 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap flex-shrink-0 transition-colors ${
+                            canReturnThis
+                              ? "bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
+                              : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          }`}
+                          title={
+                            canReturnThis
+                              ? "Return this item"
+                              : "You can only return your own items"
+                          }
+                        >
+                          {returning === co.id ? "Returning…" : "Return"}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
-                <button
-                  onClick={() => handleReturnById(co)}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm whitespace-nowrap"
-                >
-                  Return
-                </button>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

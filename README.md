@@ -104,3 +104,15 @@ Open [http://localhost:3000](http://localhost:3000) to view the app.
 | `npm run db:seed` | Seed sample data |
 | `npm run db:reset` | Reset database |
 | `npm run db:studio` | Open Prisma Studio |
+
+
+## Troubleshooting
+
+- **Copilot CLI 408 / timeout errors**: If Copilot CLI fails with `CAPIError 408`, stop using Copilot for validation or dev-server checks. Run the app and tests manually in the terminal instead.
+- **Copilot CLI auth / fetch failed**: If you see `Error during sign-in: fetch failed`, restart WSL (`wsl --shutdown`) and re-run `copilot login`, or authenticate using the GitHub CLI (`gh auth login`) and retry.
+- **Ports already in use (3000 / 3001)**: Kill existing processes before restarting dev servers:
+  ```bash
+  lsof -i :3000
+  lsof -i :3001
+  kill -9 <PID>
+  ```

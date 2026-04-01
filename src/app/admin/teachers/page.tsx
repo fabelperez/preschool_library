@@ -11,6 +11,15 @@ interface CheckoutItem {
   resourceCategoryId: string | null;
 }
 
+interface HistoryItem {
+  id: string;
+  type: string;
+  itemName: string;
+  itemDetail: string;
+  checkedOutAt: string;
+  returnedAt: string;
+}
+
 interface Teacher {
   id: string;
   name: string;
@@ -22,6 +31,8 @@ const AVATAR_COLORS = [
   "bg-indigo-500", "bg-rose-500", "bg-emerald-500", "bg-amber-500",
   "bg-cyan-500", "bg-purple-500", "bg-pink-500", "bg-teal-500",
 ];
+
+const TYPE_ICON: Record<string, string> = { book: "📖", theme: "🎨", resource: "📦", BOOK: "📖", THEME: "🎨" };
 
 function getInitials(name: string) {
   return name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
@@ -41,6 +52,9 @@ export default function ManageTeachersPage() {
   const [newEmail, setNewEmail] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedTab, setExpandedTab] = useState<"active" | "history">("active");
+  const [historyCache, setHistoryCache] = useState<Record<string, HistoryItem[]>>({});
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const fetchTeachers = () => {
@@ -162,11 +176,35 @@ export default function ManageTeachersPage() {
             const themeCheckouts = teacher.checkouts.filter((c) => c.type === "THEME");
             const totalActive = teacher.checkouts.length;
             const isExpanded = expandedId === teacher.id;
+            const history = historyCache[teacher.id] || [];
+
+            const handleExpand = () => {
+              if (isExpanded) {
+                setExpandedId(null);
+              } else {
+                setExpandedId(teacher.id);
+                setExpandedTab("active");
+              }
+            };
+
+            const handleHistoryTab = () => {
+              setExpandedTab("history");
+              if (!historyCache[teacher.id]) {
+                setLoadingHistory(true);
+                fetch(`/api/teachers/${teacher.id}/history`)
+                  .then((r) => r.json())
+                  .then((data) =>
+                    setHistoryCache((prev) => ({ ...prev, [teacher.id]: data }))
+                  )
+                  .catch(console.error)
+                  .finally(() => setLoadingHistory(false));
+              }
+            };
 
             return (
               <div key={teacher.id} className="bg-white border rounded-xl overflow-hidden">
                 <button
-                  onClick={() => setExpandedId(isExpanded ? null : teacher.id)}
+                  onClick={handleExpand}
                   className="w-full text-left p-4 flex items-center gap-4 hover:bg-gray-50 transition-colors"
                 >
                   {/* Avatar */}
@@ -195,43 +233,100 @@ export default function ManageTeachersPage() {
                   </div>
                 </button>
 
-                {/* Expanded checkout details */}
+                {/* Expanded details with tabs */}
                 {isExpanded && (
-                  <div className="border-t bg-gray-50 px-4 py-3">
-                    {totalActive === 0 ? (
-                      <p className="text-sm text-gray-400 text-center py-2">No active checkouts</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {themeCheckouts.length > 0 && (
-                          <div>
-                            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Themes</div>
-                            {themeCheckouts.map((co) => (
-                              <div key={co.id} className="flex items-center gap-2 text-sm py-1">
-                                <span>🎨</span>
-                                <span className="text-gray-700">Theme checkout</span>
-                                <span className="text-gray-400 text-xs ml-auto">
-                                  {new Date(co.checkedOutAt).toLocaleDateString()}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {activeCheckouts.length > 0 && (
-                          <div>
-                            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Books</div>
-                            {activeCheckouts.map((co) => (
-                              <div key={co.id} className="flex items-center gap-2 text-sm py-1">
-                                <span>📖</span>
-                                <span className="text-gray-700 truncate">{co.book?.title}</span>
-                                <span className="text-gray-400 text-xs ml-auto flex-shrink-0">
-                                  {new Date(co.checkedOutAt).toLocaleDateString()}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                  <div className="border-t bg-gray-50">
+                    {/* Tab toggle */}
+                    <div className="flex gap-1 px-4 pt-3">
+                      <button
+                        onClick={() => setExpandedTab("active")}
+                        className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                          expandedTab === "active"
+                            ? "bg-indigo-600 text-white"
+                            : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                        }`}
+                      >
+                        Active ({totalActive})
+                      </button>
+                      <button
+                        onClick={handleHistoryTab}
+                        className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                          expandedTab === "history"
+                            ? "bg-indigo-600 text-white"
+                            : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                        }`}
+                      >
+                        📜 History
+                      </button>
+                    </div>
+
+                    <div className="px-4 py-3">
+                      {/* Active tab */}
+                      {expandedTab === "active" && (
+                        <>
+                          {totalActive === 0 ? (
+                            <p className="text-sm text-gray-400 text-center py-2">No active checkouts</p>
+                          ) : (
+                            <div className="space-y-2">
+                              {themeCheckouts.length > 0 && (
+                                <div>
+                                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Themes</div>
+                                  {themeCheckouts.map((co) => (
+                                    <div key={co.id} className="flex items-center gap-2 text-sm py-1">
+                                      <span>🎨</span>
+                                      <span className="text-gray-700">Theme checkout</span>
+                                      <span className="text-gray-400 text-xs ml-auto">
+                                        {new Date(co.checkedOutAt).toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              {activeCheckouts.length > 0 && (
+                                <div>
+                                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Books</div>
+                                  {activeCheckouts.map((co) => (
+                                    <div key={co.id} className="flex items-center gap-2 text-sm py-1">
+                                      <span>📖</span>
+                                      <span className="text-gray-700 truncate">{co.book?.title}</span>
+                                      <span className="text-gray-400 text-xs ml-auto flex-shrink-0">
+                                        {new Date(co.checkedOutAt).toLocaleDateString()}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {/* History tab */}
+                      {expandedTab === "history" && (
+                        <>
+                          {loadingHistory ? (
+                            <p className="text-sm text-gray-400 text-center py-2">Loading history…</p>
+                          ) : history.length === 0 ? (
+                            <p className="text-sm text-gray-400 text-center py-2">No return history yet</p>
+                          ) : (
+                            <div className="space-y-1">
+                              {history.map((item) => (
+                                <div key={item.id} className="flex items-center gap-2 text-sm py-1">
+                                  <span>{TYPE_ICON[item.type] || "📄"}</span>
+                                  <span className="text-gray-700 truncate flex-1">{item.itemName}</span>
+                                  {item.itemDetail && (
+                                    <span className="text-gray-400 text-xs truncate max-w-[120px]">{item.itemDetail}</span>
+                                  )}
+                                  <span className="text-gray-400 text-xs flex-shrink-0">
+                                    returned {new Date(item.returnedAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
