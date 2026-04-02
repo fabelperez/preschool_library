@@ -12,6 +12,8 @@ interface Stats {
   activeThemeCheckouts: number;
   totalShelves: number;
   totalCategories: number;
+  overdueCount: number;
+  dueSoonCount: number;
   recentCheckouts: {
     id: string;
     type: string;
@@ -53,9 +55,9 @@ export default function AdminDashboard() {
     { label: "Total Books", value: stats.totalBooks, icon: "📖", color: "bg-blue-50 border-blue-200 text-blue-800" },
     { label: "Total Resources", value: stats.totalResources, icon: "📦", color: "bg-green-50 border-green-200 text-green-800" },
     { label: "Teachers", value: stats.totalTeachers, icon: "👩‍🏫", color: "bg-purple-50 border-purple-200 text-purple-800" },
-    { label: "Shelves", value: stats.totalShelves, icon: "🗄️", color: "bg-amber-50 border-amber-200 text-amber-800" },
     { label: "Books Checked Out", value: stats.activeBookCheckouts, icon: "✅", color: "bg-indigo-50 border-indigo-200 text-indigo-800" },
-    { label: "Themes Checked Out", value: stats.activeThemeCheckouts, icon: "🎨", color: "bg-rose-50 border-rose-200 text-rose-800" },
+    { label: "Overdue", value: stats.overdueCount, icon: "⚠️", color: stats.overdueCount > 0 ? "bg-red-50 border-red-300 text-red-800 ring-2 ring-red-300" : "bg-gray-50 border-gray-200 text-gray-600" },
+    { label: "Due Soon", value: stats.dueSoonCount, icon: "⏰", color: stats.dueSoonCount > 0 ? "bg-amber-50 border-amber-300 text-amber-800" : "bg-gray-50 border-gray-200 text-gray-600" },
   ];
 
   const quickActions = [
@@ -73,6 +75,45 @@ export default function AdminDashboard() {
         <h1 className="text-2xl font-bold text-gray-900">📊 Admin Dashboard</h1>
         <p className="text-gray-500 mt-1">Library overview and quick actions</p>
       </div>
+
+      {/* Needs attention alert */}
+      {(stats.overdueCount > 0 || stats.pendingSubmissions > 0) && (
+        <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4">
+          <h2 className="font-semibold text-red-800 mb-2">🔔 Needs Attention</h2>
+          <div className="flex flex-wrap gap-3">
+            {stats.overdueCount > 0 && (
+              <Link
+                href="/admin/checkouts"
+                className="flex items-center gap-2 bg-white border border-red-200 rounded-lg px-4 py-2 hover:shadow-md transition-shadow"
+              >
+                <span className="text-red-600 font-bold text-lg">⚠️ {stats.overdueCount}</span>
+                <span className="text-sm text-red-700">overdue item{stats.overdueCount !== 1 ? "s" : ""}</span>
+                <span className="text-xs text-red-400">→</span>
+              </Link>
+            )}
+            {stats.dueSoonCount > 0 && (
+              <Link
+                href="/admin/checkouts"
+                className="flex items-center gap-2 bg-white border border-amber-200 rounded-lg px-4 py-2 hover:shadow-md transition-shadow"
+              >
+                <span className="text-amber-600 font-bold text-lg">⏰ {stats.dueSoonCount}</span>
+                <span className="text-sm text-amber-700">due soon</span>
+                <span className="text-xs text-amber-400">→</span>
+              </Link>
+            )}
+            {stats.pendingSubmissions > 0 && (
+              <Link
+                href="/admin/submissions"
+                className="flex items-center gap-2 bg-white border border-indigo-200 rounded-lg px-4 py-2 hover:shadow-md transition-shadow"
+              >
+                <span className="text-indigo-600 font-bold text-lg">📋 {stats.pendingSubmissions}</span>
+                <span className="text-sm text-indigo-700">pending submission{stats.pendingSubmissions !== 1 ? "s" : ""}</span>
+                <span className="text-xs text-indigo-400">→</span>
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
