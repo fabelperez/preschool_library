@@ -5,19 +5,23 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useRole } from "@/components/RoleProvider";
 
-const publicLinks = [
-  { href: "/browse", label: "🔍 Browse" },
-  { href: "/library", label: "📚 Library" },
-  { href: "/books", label: "📖 Books Catalog" },
-  { href: "/resources", label: "📦 Teacher Resource Materials" },
-  { href: "/books/submit", label: "📥 Submit Book" },
-  { href: "/checkout", label: "✅ Check Out" },
-  { href: "/checkin", label: "↩️ Check In" },
-  { href: "/my-checkouts", label: "📋 My Items" },
-  { href: "/checked-out", label: "📊 Checked Out & Popular" },
+const teacherLinks = [
+  { href: "/library", label: "🏫 Library" },
+  { href: "/browse", label: "🔍 Browse & Search" },
+  { href: "/checkout", label: "📖 Check Out" },
+  { href: "/checkin", label: "📥 Check In" },
+  { href: "/my-checkouts", label: "📋 My Checkouts" },
+  { href: "/books/submit", label: "✏️ Submit Book" },
+];
+
+const librarianPublicLinks = [
+  { href: "/library", label: "🏫 Library" },
+  { href: "/browse", label: "🔍 Browse & Search" },
+  { href: "/checked-out", label: "📊 Checked Out" },
 ];
 
 const adminLinks = [
+  { href: "/admin", label: "🏠 Dashboard" },
   { href: "/admin/checkouts", label: "📋 Active Checkouts" },
   { href: "/admin/submissions", label: "📋 Submissions" },
   { href: "/admin/shelves", label: "🗄️ Shelves" },
@@ -45,7 +49,9 @@ export default function Navbar() {
   // Hide navbar on cover page or when no role selected
   if (pathname === "/" || !role) return null;
 
-  const visibleLinks = isLibrarian ? [...publicLinks, ...adminLinks] : publicLinks;
+  const visibleLinks = isLibrarian
+    ? [...librarianPublicLinks, ...adminLinks]
+    : teacherLinks;
 
   const handleSwitchRole = () => {
     clearRole();
@@ -84,8 +90,20 @@ export default function Navbar() {
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center space-x-1">
-            {visibleLinks.map((link) =>
-              renderLink(link, "px-3 py-2 rounded-md text-sm font-medium transition-colors")
+            {isLibrarian ? (
+              <>
+                {librarianPublicLinks.map((link) =>
+                  renderLink(link, "px-3 py-2 rounded-md text-sm font-medium transition-colors")
+                )}
+                <span className="mx-1 h-6 w-px bg-indigo-400" />
+                {adminLinks.map((link) =>
+                  renderLink(link, "px-3 py-2 rounded-md text-sm font-medium transition-colors")
+                )}
+              </>
+            ) : (
+              visibleLinks.map((link) =>
+                renderLink(link, "px-3 py-2 rounded-md text-sm font-medium transition-colors")
+              )
             )}
             {teacherName && (
               <span className="px-3 py-2 text-sm font-medium text-indigo-200">
@@ -115,8 +133,21 @@ export default function Navbar() {
       {/* Mobile menu */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-indigo-500">
-          {visibleLinks.map((link) =>
-            renderLink(link, "block px-4 py-3 text-sm font-medium")
+          {isLibrarian ? (
+            <>
+              {librarianPublicLinks.map((link) =>
+                renderLink(link, "block px-4 py-3 text-sm font-medium")
+              )}
+              <div className="border-t border-indigo-400 mx-4 my-1" />
+              <span className="block px-4 py-2 text-xs font-semibold text-indigo-300 uppercase tracking-wider">Admin</span>
+              {adminLinks.map((link) =>
+                renderLink(link, "block px-4 py-3 text-sm font-medium")
+              )}
+            </>
+          ) : (
+            visibleLinks.map((link) =>
+              renderLink(link, "block px-4 py-3 text-sm font-medium")
+            )
           )}
           {teacherName && (
             <span className="block px-4 py-3 text-sm font-medium text-indigo-200">

@@ -37,7 +37,7 @@ export default function CoverPage() {
     if (!teacher) return;
     setRole("teacher");
     setTeacher(teacher.id, teacher.name);
-    router.push("/browse");
+    router.push("/library");
   };
 
   // Reset selection when going back
@@ -74,7 +74,7 @@ export default function CoverPage() {
             >
               <div className="text-5xl mb-3">👩‍🏫</div>
               <div className="text-xl font-bold text-green-800 group-hover:text-green-900">Teacher</div>
-              <p className="text-sm text-green-500 mt-1">Browse catalog &amp; submit books</p>
+              <p className="text-sm text-green-500 mt-1">Browse, check out &amp; return items</p>
             </button>
           </div>
         )}
