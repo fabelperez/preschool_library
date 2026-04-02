@@ -95,6 +95,25 @@ export default function ShelfDetailPage() {
 
       if (res.ok) {
         setCheckoutMessage({ type: "success", text: `"${bookTitle}" checked out to ${teacherName}!` });
+        // Optimistic update: immediately reflect the new checkout in the UI
+        setShelf((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            sections: prev.sections.map((s) => ({
+              ...s,
+              category: {
+                ...s.category,
+                books: s.category.books.map((b) =>
+                  b.id === bookId
+                    ? { ...b, checkouts: [...b.checkouts, { returnedAt: null, teacher: { name: teacherName || "" }, checkedOutAt: new Date().toISOString() }] }
+                    : b
+                ),
+              },
+            })),
+          };
+        });
+        // Background re-fetch to sync with server
         fetchShelf();
       } else {
         const err = await res.json();
@@ -177,9 +196,19 @@ export default function ShelfDetailPage() {
                           <button
                             onClick={() => handleBookCheckout(book.id, book.title)}
                             disabled={availableCopies <= 0 || checkoutLoadingId === book.id}
-                            className="flex-shrink-0 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                            className="flex-shrink-0 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap flex items-center gap-2"
                           >
-                            {checkoutLoadingId === book.id ? "Processing..." : "✅ Check Out"}
+                            {checkoutLoadingId === book.id ? (
+                              <>
+                                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                </svg>
+                                Checking out…
+                              </>
+                            ) : (
+                              "✅ Check Out"
+                            )}
                           </button>
                         </div>
                       );
