@@ -17,6 +17,7 @@ const teacherLinks = [
 const librarianPublicLinks = [
   { href: "/library", label: "🏫 Library" },
   { href: "/browse", label: "🔍 Browse & Search" },
+  { href: "/scan-station", label: "📡 Scan Station" },
   { href: "/checked-out", label: "📊 Checked Out" },
 ];
 

@@ -19,7 +19,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { type = "BOOK", bookId, resourceCategoryId, teacherId } = body;
+    const { type = "BOOK", bookId, isbn, resourceCategoryId, teacherId } = body;
 
     if (!teacherId) {
       return NextResponse.json({ error: "Teacher ID is required" }, { status: 400 });
@@ -53,12 +53,22 @@ export async function POST(request: NextRequest) {
     }
 
     // --- Book checkout ---
-    if (!bookId) {
-      return NextResponse.json({ error: "Book ID is required" }, { status: 400 });
+    // Resolve ISBN to bookId if needed
+    let resolvedBookId = bookId;
+    if (!resolvedBookId && isbn) {
+      const bookByIsbn = await prisma.book.findUnique({ where: { isbn } });
+      if (!bookByIsbn) {
+        return NextResponse.json({ error: `No book found with ISBN ${isbn}` }, { status: 404 });
+      }
+      resolvedBookId = bookByIsbn.id;
+    }
+
+    if (!resolvedBookId) {
+      return NextResponse.json({ error: "Book ID or ISBN is required" }, { status: 400 });
     }
 
     // Check TR theme restriction
-    const restriction = await checkBookThemeRestriction(bookId);
+    const restriction = await checkBookThemeRestriction(resolvedBookId);
     if (restriction.blocked) {
       const msg = restriction.reason === "theme_checked_out"
         ? `This book is part of the "${restriction.themeName}" Teacher Resource theme, currently checked out by ${restriction.teacherName}. Admin approval is required to check out individual items from a theme.`
@@ -68,7 +78,7 @@ export async function POST(request: NextRequest) {
 
     // Check availability
     const book = await prisma.book.findUnique({
-      where: { id: bookId },
+      where: { id: resolvedBookId },
       include: { checkouts: { where: { returnedAt: null, type: "BOOK" } } },
     });
 
@@ -82,7 +92,7 @@ export async function POST(request: NextRequest) {
     }
 
     const checkout = await prisma.checkout.create({
-      data: { type: "BOOK", bookId, teacherId },
+      data: { type: "BOOK", bookId: resolvedBookId, teacherId },
       include: { book: true, teacher: true },
     });
 

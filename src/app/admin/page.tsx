@@ -61,12 +61,12 @@ export default function AdminDashboard() {
   ];
 
   const quickActions = [
+    { href: "/scan-station", label: "📡 Scan Station", desc: "Quick scan checkout & return", highlight: false },
     { href: "/admin/submissions", label: "📋 Submissions", desc: `${stats.pendingSubmissions} pending`, highlight: stats.pendingSubmissions > 0 },
     { href: "/admin/shelves", label: "🗄️ Manage Shelves", desc: `${stats.totalShelves} shelves` },
     { href: "/admin/resources", label: "📦 Resources", desc: `${stats.totalResources} items` },
     { href: "/admin/shelves/layout", label: "📐 Room Layout", desc: "Drag & drop editor" },
     { href: "/admin/teachers", label: "👩‍🏫 Teachers", desc: `${stats.totalTeachers} registered` },
-    { href: "/checked-out", label: "📊 Checked Out", desc: `${stats.activeBookCheckouts + stats.activeThemeCheckouts} active` },
   ];
 
   return (
