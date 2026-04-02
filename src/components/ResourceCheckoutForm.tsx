@@ -66,7 +66,7 @@ export default function ResourceCheckoutForm({
     if (selectedBinId) {
       fetch(`/api/resources?binId=${selectedBinId}`)
         .then((r) => r.json())
-        .then(setResources)
+        .then((data) => setResources(Array.isArray(data) ? data : data?.resources ?? []))
         .catch(console.error);
     } else {
       setResources([]);
@@ -101,10 +101,10 @@ export default function ResourceCheckoutForm({
         });
         setSelectedResourceId("");
         if (selectedBinId) {
-          const updated = await fetch(
+          const raw = await fetch(
             `/api/resources?binId=${selectedBinId}`
           ).then((r) => r.json());
-          setResources(updated);
+          setResources(Array.isArray(raw) ? raw : raw?.resources ?? []);
         }
       }
     } catch {

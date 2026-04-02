@@ -86,7 +86,7 @@ export default function BookForm({ initialData, onSubmit, submitLabel = "Save Bo
       fetch("/api/categories").then((r) => r.json()),
       fetch("/api/qualifiers").then((r) => r.json()),
       fetch("/api/bins").then((r) => r.json()),
-      fetch("/api/resources").then((r) => r.json()),
+      fetch("/api/resources").then((r) => r.json()).then((d) => Array.isArray(d) ? d : d?.resources ?? []),
       fetch("/api/resource-categories").then((r) => r.json()),
     ]).then(([cats, quals, binData, resourceData, rcData]) => {
       setCategories(cats);

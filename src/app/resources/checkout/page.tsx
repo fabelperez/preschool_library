@@ -58,7 +58,7 @@ function ResourceCheckoutContent() {
     if (selectedBinId) {
       fetch(`/api/resources?binId=${selectedBinId}`)
         .then((r) => r.json())
-        .then(setResources)
+        .then((data) => setResources(Array.isArray(data) ? data : data?.resources ?? []))
         .catch(console.error);
     } else if (preselectedResourceId) {
       fetch(`/api/resources/${preselectedResourceId}`)
@@ -101,8 +101,8 @@ function ResourceCheckoutContent() {
         setSelectedResourceId("");
         // Refresh resources list
         if (selectedBinId) {
-          const updated = await fetch(`/api/resources?binId=${selectedBinId}`).then((r) => r.json());
-          setResources(updated);
+          const raw = await fetch(`/api/resources?binId=${selectedBinId}`).then((r) => r.json());
+          setResources(Array.isArray(raw) ? raw : raw?.resources ?? []);
         }
       }
     } catch {

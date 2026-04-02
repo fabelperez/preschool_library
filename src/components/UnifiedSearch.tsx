@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import Fuse, { IFuseOptions } from "fuse.js";
+import ResourceCard from "@/components/ResourceCard";
 
 interface Category {
   id: string;
@@ -357,7 +358,19 @@ export default function UnifiedSearch({ onSelectBook }: { onSelectBook?: (book: 
               count={filteredResources.length}
             >
               {filteredResources.map((resource) => (
-                <ResourceCard key={resource.id} resource={resource} />
+                <ResourceCard
+                  key={resource.id}
+                  id={resource.id}
+                  name={resource.name}
+                  description={resource.description}
+                  quantity={resource.quantity}
+                  availableQuantity={resource.availableQuantity}
+                  themeName={resource.themeName}
+                  categoryName={resource.resourceCategory?.name}
+                  locationPath={resource.locationPath}
+                  checkedOutBy={resource.checkedOutBy}
+                  variant="compact"
+                />
               ))}
             </ResultSection>
           )}
@@ -471,48 +484,6 @@ function BookCard({ book, onSelect }: { book: BookResult; onSelect?: (book: Book
   return (
     <Link href={`/books/${book.id}`} className={cardClass}>
       {content}
-    </Link>
-  );
-}
-
-function ResourceCard({ resource }: { resource: ResourceResult }) {
-  const available = resource.availableQuantity > 0;
-  return (
-    <Link
-      href={`/resources/${resource.id}`}
-      className="block p-3 border border-gray-200 rounded-lg hover:border-green-300 hover:shadow-sm transition-all bg-white"
-    >
-      <div className="min-w-0">
-        <p className="font-medium text-gray-900 text-sm truncate">
-          {resource.name}
-        </p>
-        {resource.description && (
-          <p className="text-xs text-gray-500 truncate">
-            {resource.description}
-          </p>
-        )}
-        <div className="flex flex-wrap gap-1 mt-1">
-          {resource.themeName && (
-            <span className="text-xs px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded">
-              🎨 {resource.themeName}
-            </span>
-          )}
-          <span
-            className={`text-xs px-1.5 py-0.5 rounded ${
-              available
-                ? "bg-green-50 text-green-700"
-                : "bg-red-50 text-red-700"
-            }`}
-          >
-            {resource.availableQuantity}/{resource.quantity}
-          </span>
-          {resource.locationPath && (
-            <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">
-              📍 {resource.locationPath}
-            </span>
-          )}
-        </div>
-      </div>
     </Link>
   );
 }

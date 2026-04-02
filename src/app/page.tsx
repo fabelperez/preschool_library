@@ -37,7 +37,7 @@ export default function CoverPage() {
     if (!teacher) return;
     setRole("teacher");
     setTeacher(teacher.id, teacher.name);
-    router.push("/library");
+    router.push("/browse");
   };
 
   // Reset selection when going back

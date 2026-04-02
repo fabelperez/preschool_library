@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { useRole } from "@/components/RoleProvider";
 
 const publicLinks = [
+  { href: "/browse", label: "🔍 Browse" },
   { href: "/library", label: "📚 Library" },
   { href: "/books", label: "📖 Books Catalog" },
   { href: "/resources", label: "📦 Teacher Resource Materials" },
