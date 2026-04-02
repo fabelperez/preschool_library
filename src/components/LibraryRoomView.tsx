@@ -229,6 +229,39 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
     }
   };
 
+  const handleThemeCheckout = async (resourceCategoryId: string, themeName: string) => {
+    if (!teacherId) {
+      setCheckoutMessage({ type: "warning", text: "Please select your identity on the home page before checking out." });
+      return;
+    }
+
+    setCheckoutLoadingId(`theme-${resourceCategoryId}`);
+    setCheckoutMessage(null);
+
+    try {
+      const res = await fetch("/api/checkouts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "THEME", resourceCategoryId, teacherId }),
+      });
+
+      if (res.ok) {
+        setCheckoutMessage({ type: "success", text: `Theme "${themeName}" checked out to ${teacherName}!` });
+        refreshDetail();
+      } else {
+        const err = await res.json();
+        setCheckoutMessage({
+          type: res.status === 403 ? "warning" : "error",
+          text: err.error || "Theme checkout failed",
+        });
+      }
+    } catch {
+      setCheckoutMessage({ type: "error", text: "Something went wrong" });
+    } finally {
+      setCheckoutLoadingId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Room view */}
@@ -421,12 +454,24 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
                                     ...theme.books.map((b) => (b.totalCopies || 1) - (b.checkouts?.filter((c: { returnedAt: string | null }) => !c.returnedAt).length || 0)),
                                   ];
                                   const themeAvailable = allAvailable.every((a) => a > 0);
+                                  const themeLoadingKey = `theme-${theme.themeId}`;
                                   return (
                                     <button
-                                      disabled={!themeAvailable}
-                                      className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                                      onClick={() => theme.themeId && handleThemeCheckout(theme.themeId, theme.themeName)}
+                                      disabled={!themeAvailable || !theme.themeId || checkoutLoadingId === themeLoadingKey}
+                                      className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap flex items-center gap-1.5"
                                     >
-                                      ✅ Check Out Theme
+                                      {checkoutLoadingId === themeLoadingKey ? (
+                                        <>
+                                          <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                          </svg>
+                                          Checking out…
+                                        </>
+                                      ) : (
+                                        "✅ Check Out Theme"
+                                      )}
                                     </button>
                                   );
                                 })()}

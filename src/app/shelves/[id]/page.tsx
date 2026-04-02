@@ -129,6 +129,39 @@ export default function ShelfDetailPage() {
     }
   };
 
+  const handleThemeCheckout = async (resourceCategoryId: string, themeName: string) => {
+    if (!teacherId) {
+      setCheckoutMessage({ type: "warning", text: "Please select your identity on the home page before checking out." });
+      return;
+    }
+
+    setCheckoutLoadingId(`theme-${resourceCategoryId}`);
+    setCheckoutMessage(null);
+
+    try {
+      const res = await fetch("/api/checkouts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "THEME", resourceCategoryId, teacherId }),
+      });
+
+      if (res.ok) {
+        setCheckoutMessage({ type: "success", text: `Theme "${themeName}" checked out to ${teacherName}!` });
+        fetchShelf();
+      } else {
+        const err = await res.json();
+        setCheckoutMessage({
+          type: res.status === 403 ? "warning" : "error",
+          text: err.error || "Theme checkout failed",
+        });
+      }
+    } catch {
+      setCheckoutMessage({ type: "error", text: "Something went wrong" });
+    } finally {
+      setCheckoutLoadingId(null);
+    }
+  };
+
   if (loading) return <div className="text-center py-12 text-gray-500">Loading shelf...</div>;
   if (!shelf) return <div className="text-center py-12 text-red-500">Shelf not found</div>;
 
@@ -230,20 +263,23 @@ export default function ShelfDetailPage() {
           {shelf.bins.map((bin) => {
             // Group all items in this bin by theme
             const themeMap = new Map<string, {
+              themeId: string | null;
               resources: (BinResource & { available: number })[];
               books: (BinBook & { available: number })[];
             }>();
 
             for (const r of bin.resources) {
               const theme = r.resourceCategory?.name || bin.theme || "General";
-              if (!themeMap.has(theme)) themeMap.set(theme, { resources: [], books: [] });
+              const themeId = r.resourceCategory?.id || null;
+              if (!themeMap.has(theme)) themeMap.set(theme, { themeId, resources: [], books: [] });
               const activeCount = r.checkouts.filter((c) => !c.returnedAt).length;
               themeMap.get(theme)!.resources.push({ ...r, available: r.quantity - activeCount });
             }
 
             for (const b of bin.books) {
               const theme = b.resourceCategory?.name || b.resource?.resourceCategory?.name || bin.theme || "General";
-              if (!themeMap.has(theme)) themeMap.set(theme, { resources: [], books: [] });
+              const themeId = b.resourceCategory?.id || b.resource?.resourceCategory?.id || null;
+              if (!themeMap.has(theme)) themeMap.set(theme, { themeId, resources: [], books: [] });
               const activeCount = b.checkouts.filter((c) => !c.returnedAt).length;
               themeMap.get(theme)!.books.push({ ...b, available: b.totalCopies - activeCount });
             }
@@ -262,12 +298,13 @@ export default function ShelfDetailPage() {
                 </div>
 
                 <div className="divide-y divide-emerald-100">
-                  {themeGroups.map(({ theme, resources, books }) => {
+                  {themeGroups.map(({ theme, themeId, resources, books }) => {
                     const allItems = [
                       ...resources.map((r) => ({ available: r.available })),
                       ...books.map((b) => ({ available: b.available })),
                     ];
                     const themeAvailable = allItems.every((i) => i.available > 0);
+                    const themeLoadingKey = `theme-${themeId}`;
 
                     return (
                       <div key={theme} className="p-4">
@@ -281,10 +318,21 @@ export default function ShelfDetailPage() {
                             </span>
                           </div>
                           <button
-                            disabled={!themeAvailable}
-                            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                            onClick={() => themeId && handleThemeCheckout(themeId, theme)}
+                            disabled={!themeAvailable || !themeId || checkoutLoadingId === themeLoadingKey}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap flex items-center gap-2"
                           >
-                            ✅ Check Out Theme
+                            {checkoutLoadingId === themeLoadingKey ? (
+                              <>
+                                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                </svg>
+                                Checking out…
+                              </>
+                            ) : (
+                              "✅ Check Out Theme"
+                            )}
                           </button>
                         </div>
 
