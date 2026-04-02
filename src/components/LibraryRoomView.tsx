@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { groupByTheme } from "@/lib/groupByTheme";
+import { useRole } from "@/components/RoleProvider";
 
 interface ShelfSection {
   id: string;
@@ -158,10 +159,13 @@ function getAvailabilityColor(shelf: Shelf) {
 }
 
 export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
+  const { teacherId, teacherName } = useRole();
   const [selectedShelf, setSelectedShelf] = useState<Shelf | null>(null);
   const [shelfDetail, setShelfDetail] = useState<ShelfDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [fixtures, setFixtures] = useState<RoomFixture[]>([]);
+  const [checkoutLoadingId, setCheckoutLoadingId] = useState<string | null>(null);
+  const [checkoutMessage, setCheckoutMessage] = useState<{ type: "success" | "error" | "warning"; text: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/room-fixtures")
@@ -183,6 +187,47 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
       .catch(console.error)
       .finally(() => setDetailLoading(false));
   }, [selectedShelf]);
+
+  const refreshDetail = useCallback(() => {
+    if (!selectedShelf) return;
+    fetch(`/api/shelves/${selectedShelf.id}`)
+      .then((r) => r.json())
+      .then(setShelfDetail)
+      .catch(console.error);
+  }, [selectedShelf]);
+
+  const handleBookCheckout = async (bookId: string, bookTitle: string) => {
+    if (!teacherId) {
+      setCheckoutMessage({ type: "warning", text: "Please select your identity on the home page before checking out." });
+      return;
+    }
+
+    setCheckoutLoadingId(bookId);
+    setCheckoutMessage(null);
+
+    try {
+      const res = await fetch("/api/checkouts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "BOOK", bookId, teacherId }),
+      });
+
+      if (res.ok) {
+        setCheckoutMessage({ type: "success", text: `"${bookTitle}" checked out to ${teacherName}!` });
+        refreshDetail();
+      } else {
+        const err = await res.json();
+        setCheckoutMessage({
+          type: res.status === 403 ? "warning" : "error",
+          text: err.error || "Checkout failed",
+        });
+      }
+    } catch {
+      setCheckoutMessage({ type: "error", text: "Something went wrong" });
+    } finally {
+      setCheckoutLoadingId(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -312,7 +357,21 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
 
           {detailLoading ? (
             <div className="p-8 text-center text-gray-500">Loading shelf details...</div>
-          ) : selectedShelf.type === "resource" && shelfDetail?.bins ? (
+          ) : <>
+            {/* Checkout feedback */}
+            {checkoutMessage && (
+              <div className={`mx-4 mt-3 p-3 rounded-lg text-sm font-medium ${
+                checkoutMessage.type === "success"
+                  ? "bg-green-100 text-green-800"
+                  : checkoutMessage.type === "warning"
+                  ? "bg-amber-100 text-amber-800"
+                  : "bg-red-100 text-red-800"
+              }`}>
+                {checkoutMessage.text}
+                <button onClick={() => setCheckoutMessage(null)} className="ml-2 underline text-xs">dismiss</button>
+              </div>
+            )}
+          {selectedShelf.type === "resource" && shelfDetail?.bins ? (
             <div className="divide-y">
               {shelfDetail.bins.length > 0 ? (
                 shelfDetail.bins.map((bin) => {
@@ -472,10 +531,21 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
                               </span>
                             </Link>
                             <button
-                              disabled={available <= 0}
-                              className="flex-shrink-0 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                              onClick={() => handleBookCheckout(book.id, book.title)}
+                              disabled={available <= 0 || checkoutLoadingId === book.id}
+                              className="flex-shrink-0 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap flex items-center gap-1.5"
                             >
-                              ✅ Check Out
+                              {checkoutLoadingId === book.id ? (
+                                <>
+                                  <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                  </svg>
+                                  Checking out…
+                                </>
+                              ) : (
+                                "✅ Check Out"
+                              )}
                             </button>
                           </div>
                         );
@@ -486,6 +556,7 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
               ))}
             </div>
           ) : null}
+          </>}
         </div>
       )}
     </div>
