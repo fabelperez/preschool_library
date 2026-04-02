@@ -90,9 +90,14 @@ export default function UnifiedSearch({ onSelectBook }: { onSelectBook?: (book: 
 
   // Check if OpenAI semantic search is available on mount
   useEffect(() => {
-    fetch("/api/search/semantic", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: "test" }) })
+    fetch("/api/search/semantic", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: "_ping" }) })
       .then((r) => {
-        setSmartSearchAvailable(r.status !== 501);
+        if (r.status === 501) {
+          // API not configured — silently disable smart search
+          setSmartSearchAvailable(false);
+        } else {
+          setSmartSearchAvailable(true);
+        }
       })
       .catch(() => setSmartSearchAvailable(false));
   }, []);

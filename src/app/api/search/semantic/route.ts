@@ -14,6 +14,11 @@ export async function POST(request: NextRequest) {
   try {
     const { query, categoryId, resourceCategoryId } = await request.json();
 
+    // Quick availability check — no DB hit needed
+    if (query === "_ping") {
+      return NextResponse.json({ available: true });
+    }
+
     if (!query?.trim()) {
       return NextResponse.json(
         { error: "Query is required" },
