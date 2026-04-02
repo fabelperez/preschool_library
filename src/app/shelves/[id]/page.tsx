@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import BookCard from "@/components/BookCard";
+import { useRole } from "@/components/RoleProvider";
 
 interface Book {
   id: string;
@@ -60,16 +61,54 @@ interface Shelf {
 
 export default function ShelfDetailPage() {
   const params = useParams();
+  const { teacherId, teacherName } = useRole();
   const [shelf, setShelf] = useState<Shelf | null>(null);
   const [loading, setLoading] = useState(true);
+  const [checkoutLoadingId, setCheckoutLoadingId] = useState<string | null>(null);
+  const [checkoutMessage, setCheckoutMessage] = useState<{ type: "success" | "error" | "warning"; text: string } | null>(null);
 
-  useEffect(() => {
+  const fetchShelf = useCallback(() => {
     fetch(`/api/shelves/${params.id}`)
       .then((r) => r.json())
       .then(setShelf)
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [params.id]);
+
+  useEffect(() => { fetchShelf(); }, [fetchShelf]);
+
+  const handleBookCheckout = async (bookId: string, bookTitle: string) => {
+    if (!teacherId) {
+      setCheckoutMessage({ type: "warning", text: "Please select your identity on the home page before checking out." });
+      return;
+    }
+
+    setCheckoutLoadingId(bookId);
+    setCheckoutMessage(null);
+
+    try {
+      const res = await fetch("/api/checkouts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "BOOK", bookId, teacherId }),
+      });
+
+      if (res.ok) {
+        setCheckoutMessage({ type: "success", text: `"${bookTitle}" checked out to ${teacherName}!` });
+        fetchShelf();
+      } else {
+        const err = await res.json();
+        setCheckoutMessage({
+          type: res.status === 403 ? "warning" : "error",
+          text: err.error || "Checkout failed",
+        });
+      }
+    } catch {
+      setCheckoutMessage({ type: "error", text: "Something went wrong" });
+    } finally {
+      setCheckoutLoadingId(null);
+    }
+  };
 
   if (loading) return <div className="text-center py-12 text-gray-500">Loading shelf...</div>;
   if (!shelf) return <div className="text-center py-12 text-red-500">Shelf not found</div>;
@@ -81,6 +120,22 @@ export default function ShelfDetailPage() {
       <Link href="/library" className="text-indigo-600 hover:underline text-sm">← Back to library</Link>
 
       <h1 className="text-2xl font-bold text-gray-900">🗄️ {shelf.name}</h1>
+
+      {/* Checkout feedback */}
+      {checkoutMessage && (
+        <div
+          className={`p-3 rounded-lg text-sm font-medium ${
+            checkoutMessage.type === "success"
+              ? "bg-green-100 text-green-800"
+              : checkoutMessage.type === "warning"
+              ? "bg-amber-100 text-amber-800"
+              : "bg-red-100 text-red-800"
+          }`}
+        >
+          {checkoutMessage.text}
+          <button onClick={() => setCheckoutMessage(null)} className="ml-2 underline text-xs">dismiss</button>
+        </div>
+      )}
 
       {/* ---- General book sections ---- */}
       {shelf.sections.length > 0 && (
@@ -120,10 +175,11 @@ export default function ShelfDetailPage() {
                             />
                           </div>
                           <button
-                            disabled={availableCopies <= 0}
+                            onClick={() => handleBookCheckout(book.id, book.title)}
+                            disabled={availableCopies <= 0 || checkoutLoadingId === book.id}
                             className="flex-shrink-0 px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                           >
-                            ✅ Check Out
+                            {checkoutLoadingId === book.id ? "Processing..." : "✅ Check Out"}
                           </button>
                         </div>
                       );
