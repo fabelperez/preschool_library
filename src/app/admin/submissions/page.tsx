@@ -28,6 +28,12 @@ export default function AdminSubmissionsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("pending");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkCategoryId, setBulkCategoryId] = useState("");
+  const [bulkRejectReason, setBulkRejectReason] = useState("");
+  const [showBulkApprove, setShowBulkApprove] = useState(false);
+  const [showBulkReject, setShowBulkReject] = useState(false);
 
   // Approval form state
   const [approvingId, setApprovingId] = useState<string | null>(null);
@@ -71,6 +77,9 @@ export default function AdminSubmissionsPage() {
 
   useEffect(() => {
     setLoading(true);
+    setSelectedIds(new Set());
+    setShowBulkApprove(false);
+    setShowBulkReject(false);
     fetchData();
   }, [filter]);
 
@@ -128,6 +137,64 @@ export default function AdminSubmissionsPage() {
     }
   };
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const pendingIds = submissions.filter((s) => s.status === "pending").map((s) => s.id);
+    if (pendingIds.every((id) => selectedIds.has(id))) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(pendingIds));
+    }
+  };
+
+  const clearBulkState = () => {
+    setSelectedIds(new Set());
+    setShowBulkApprove(false);
+    setShowBulkReject(false);
+    setBulkCategoryId("");
+    setBulkRejectReason("");
+  };
+
+  const handleBulkAction = async (action: "approve" | "reject") => {
+    if (selectedIds.size === 0) return;
+    setMessage(null);
+    setBulkLoading(true);
+
+    try {
+      const res = await fetch("/api/submissions/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          ids: Array.from(selectedIds),
+          categoryId: action === "approve" ? (bulkCategoryId || null) : undefined,
+          rejectReason: action === "reject" ? (bulkRejectReason || null) : undefined,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setMessage({ type: "success", text: data.message });
+        clearBulkState();
+        fetchData();
+      } else {
+        const err = await res.json();
+        setMessage({ type: "error", text: err.error || `Bulk ${action} failed` });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Something went wrong" });
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <AdminHeader icon="📋" title="Book Submissions" description="Review and approve teacher-submitted books" />
@@ -169,9 +236,138 @@ export default function AdminSubmissionsPage() {
         </div>
       ) : (
         <div className="space-y-4">
+          {/* Bulk action bar — only for pending */}
+          {filter === "pending" && submissions.length > 0 && (
+            <div className="bg-white border rounded-xl p-4 sticky top-0 z-10">
+              <div className="flex items-center gap-4 flex-wrap">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={submissions.length > 0 && submissions.every((s) => selectedIds.has(s.id))}
+                    onChange={toggleSelectAll}
+                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Select All</span>
+                </label>
+
+                {selectedIds.size > 0 && (
+                  <>
+                    <span className="text-sm text-indigo-600 font-medium">
+                      {selectedIds.size} selected
+                    </span>
+                    <div className="flex gap-2 ml-auto">
+                      <button
+                        onClick={() => { setShowBulkApprove(true); setShowBulkReject(false); }}
+                        disabled={bulkLoading}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium disabled:opacity-50"
+                      >
+                        ✓ Approve {selectedIds.size}
+                      </button>
+                      <button
+                        onClick={() => { setShowBulkReject(true); setShowBulkApprove(false); }}
+                        disabled={bulkLoading}
+                        className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-sm font-medium disabled:opacity-50"
+                      >
+                        ✗ Reject {selectedIds.size}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Bulk approve form */}
+              {showBulkApprove && selectedIds.size > 0 && (
+                <div className="mt-4 pt-4 border-t space-y-3">
+                  <p className="text-sm font-medium text-green-800">
+                    Assign a category for all {selectedIds.size} selected submission{selectedIds.size !== 1 ? "s" : ""}:
+                  </p>
+                  <select
+                    value={bulkCategoryId}
+                    onChange={(e) => setBulkCategoryId(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  >
+                    <option value="">No category (assign later)</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleBulkAction("approve")}
+                      disabled={bulkLoading}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {bulkLoading && (
+                        <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      )}
+                      ✓ Confirm Bulk Approval
+                    </button>
+                    <button
+                      onClick={() => { setShowBulkApprove(false); setBulkCategoryId(""); }}
+                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Bulk reject form */}
+              {showBulkReject && selectedIds.size > 0 && (
+                <div className="mt-4 pt-4 border-t space-y-3">
+                  <p className="text-sm font-medium text-red-800">
+                    Reason for rejecting {selectedIds.size} submission{selectedIds.size !== 1 ? "s" : ""} (optional):
+                  </p>
+                  <textarea
+                    value={bulkRejectReason}
+                    onChange={(e) => setBulkRejectReason(e.target.value)}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    placeholder="e.g., Duplicates of existing books..."
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleBulkAction("reject")}
+                      disabled={bulkLoading}
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {bulkLoading && (
+                        <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      )}
+                      ✗ Confirm Bulk Rejection
+                    </button>
+                    <button
+                      onClick={() => { setShowBulkReject(false); setBulkRejectReason(""); }}
+                      className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {submissions.map((sub) => (
-            <div key={sub.id} className="bg-white border rounded-xl p-5">
+            <div key={sub.id} className={`bg-white border rounded-xl p-5 ${selectedIds.has(sub.id) ? "ring-2 ring-indigo-300 border-indigo-300" : ""}`}>
               <div className="flex gap-4">
+                {/* Checkbox for pending items */}
+                {sub.status === "pending" && (
+                  <div className="flex items-start pt-1">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(sub.id)}
+                      onChange={() => toggleSelect(sub.id)}
+                      className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                  </div>
+                )}
                 {/* Cover */}
                 <div className="w-16 h-20 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
                   {sub.coverImageUrl ? (
