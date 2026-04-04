@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRole } from "@/components/RoleProvider";
 import BarcodeScanner from "@/components/BarcodeScanner";
+import { useToast } from "@/components/ToastProvider";
 
 interface CheckoutRecord {
   id: string;
@@ -36,16 +37,13 @@ const TYPE_LABEL: Record<string, string> = {
 export default function CheckinPage() {
   const { role, teacherId: sessionTeacherId, teacherName: sessionTeacherName } = useRole();
   const isLibrarian = role === "librarian";
+  const toast = useToast();
 
   const [checkouts, setCheckouts] = useState<CheckoutRecord[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [selectedTeacherId, setSelectedTeacherId] = useState("");
   const [loading, setLoading] = useState(true);
   const [returning, setReturning] = useState<string | null>(null);
-  const [message, setMessage] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
 
   // Auto-fill teacher identity when locked to session
   useEffect(() => {
@@ -79,7 +77,6 @@ export default function CheckinPage() {
 
   const handleReturn = async (co: CheckoutRecord) => {
     setReturning(co.id);
-    setMessage(null);
 
     const endpoint =
       co.type === "resource"
@@ -94,25 +91,20 @@ export default function CheckinPage() {
       });
 
       if (res.ok) {
-        setMessage({
-          type: "success",
-          text: `${TYPE_ICON[co.type]} "${co.itemName}" returned by ${co.teacherName}!`,
-        });
+        toast.success(`${TYPE_ICON[co.type]} "${co.itemName}" returned by ${co.teacherName}!`);
         fetchData();
       } else {
         const err = await res.json();
-        setMessage({ type: "error", text: err.error || "Return failed" });
+        toast.error(err.error || "Return failed");
       }
     } catch {
-      setMessage({ type: "error", text: "Something went wrong" });
+      toast.error("Something went wrong");
     } finally {
       setReturning(null);
     }
   };
 
   const handleScan = async (isbn: string) => {
-    setMessage(null);
-
     // In teacher mode, restrict to their checkout
     const teacherFilter =
       !isLibrarian && selectedTeacherId ? selectedTeacherId : undefined;
@@ -126,17 +118,14 @@ export default function CheckinPage() {
 
       if (res.ok) {
         const data = await res.json();
-        setMessage({
-          type: "success",
-          text: `📖 "${data.book.title}" returned by ${data.teacher.name}!`,
-        });
+        toast.success(`📖 "${data.book.title}" returned by ${data.teacher.name}!`);
         fetchData();
       } else {
         const err = await res.json();
-        setMessage({ type: "error", text: err.error || "Return failed" });
+        toast.error(err.error || "Return failed");
       }
     } catch {
-      setMessage({ type: "error", text: "Something went wrong" });
+      toast.error("Something went wrong");
     }
   };
 
@@ -155,18 +144,6 @@ export default function CheckinPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">↩️ Return Items</h1>
-
-      {message && (
-        <div
-          className={`p-4 rounded-lg ${
-            message.type === "success"
-              ? "bg-green-50 border border-green-200 text-green-700"
-              : "bg-red-50 border border-red-200 text-red-700"
-          }`}
-        >
-          {message.text}
-        </div>
-      )}
 
       {/* Teacher identification (teacher role only) */}
       {!isLibrarian && (

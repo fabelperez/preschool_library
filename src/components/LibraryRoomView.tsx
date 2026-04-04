@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { groupByTheme } from "@/lib/groupByTheme";
 import { useRole } from "@/components/RoleProvider";
+import { useToast } from "@/components/ToastProvider";
 
 interface ShelfSection {
   id: string;
@@ -160,12 +161,12 @@ function getAvailabilityColor(shelf: Shelf) {
 
 export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
   const { teacherId, teacherName } = useRole();
+  const toast = useToast();
   const [selectedShelf, setSelectedShelf] = useState<Shelf | null>(null);
   const [shelfDetail, setShelfDetail] = useState<ShelfDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [fixtures, setFixtures] = useState<RoomFixture[]>([]);
   const [checkoutLoadingId, setCheckoutLoadingId] = useState<string | null>(null);
-  const [checkoutMessage, setCheckoutMessage] = useState<{ type: "success" | "error" | "warning"; text: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/room-fixtures")
@@ -198,12 +199,11 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
 
   const handleBookCheckout = async (bookId: string, bookTitle: string) => {
     if (!teacherId) {
-      setCheckoutMessage({ type: "warning", text: "Please select your identity on the home page before checking out." });
+      toast.warning("Please select your identity on the home page before checking out.");
       return;
     }
 
     setCheckoutLoadingId(bookId);
-    setCheckoutMessage(null);
 
     try {
       const res = await fetch("/api/checkouts", {
@@ -213,17 +213,18 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
       });
 
       if (res.ok) {
-        setCheckoutMessage({ type: "success", text: `"${bookTitle}" checked out to ${teacherName}!` });
+        toast.success(`"${bookTitle}" checked out to ${teacherName}!`);
         refreshDetail();
       } else {
         const err = await res.json();
-        setCheckoutMessage({
-          type: res.status === 403 ? "warning" : "error",
-          text: err.error || "Checkout failed",
-        });
+        if (res.status === 403) {
+          toast.warning(err.error || "Checkout failed");
+        } else {
+          toast.error(err.error || "Checkout failed");
+        }
       }
     } catch {
-      setCheckoutMessage({ type: "error", text: "Something went wrong" });
+      toast.error("Something went wrong");
     } finally {
       setCheckoutLoadingId(null);
     }
@@ -231,12 +232,11 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
 
   const handleThemeCheckout = async (resourceCategoryId: string, themeName: string) => {
     if (!teacherId) {
-      setCheckoutMessage({ type: "warning", text: "Please select your identity on the home page before checking out." });
+      toast.warning("Please select your identity on the home page before checking out.");
       return;
     }
 
     setCheckoutLoadingId(`theme-${resourceCategoryId}`);
-    setCheckoutMessage(null);
 
     try {
       const res = await fetch("/api/checkouts", {
@@ -246,17 +246,18 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
       });
 
       if (res.ok) {
-        setCheckoutMessage({ type: "success", text: `Theme "${themeName}" checked out to ${teacherName}!` });
+        toast.success(`Theme "${themeName}" checked out to ${teacherName}!`);
         refreshDetail();
       } else {
         const err = await res.json();
-        setCheckoutMessage({
-          type: res.status === 403 ? "warning" : "error",
-          text: err.error || "Theme checkout failed",
-        });
+        if (res.status === 403) {
+          toast.warning(err.error || "Theme checkout failed");
+        } else {
+          toast.error(err.error || "Theme checkout failed");
+        }
       }
     } catch {
-      setCheckoutMessage({ type: "error", text: "Something went wrong" });
+      toast.error("Something went wrong");
     } finally {
       setCheckoutLoadingId(null);
     }
@@ -391,19 +392,6 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
           {detailLoading ? (
             <div className="p-8 text-center text-gray-500">Loading shelf details...</div>
           ) : <>
-            {/* Checkout feedback */}
-            {checkoutMessage && (
-              <div className={`mx-4 mt-3 p-3 rounded-lg text-sm font-medium ${
-                checkoutMessage.type === "success"
-                  ? "bg-green-100 text-green-800"
-                  : checkoutMessage.type === "warning"
-                  ? "bg-amber-100 text-amber-800"
-                  : "bg-red-100 text-red-800"
-              }`}>
-                {checkoutMessage.text}
-                <button onClick={() => setCheckoutMessage(null)} className="ml-2 underline text-xs">dismiss</button>
-              </div>
-            )}
           {selectedShelf.type === "resource" && shelfDetail?.bins ? (
             <div className="divide-y">
               {shelfDetail.bins.length > 0 ? (

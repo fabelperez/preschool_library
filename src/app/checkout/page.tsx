@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import ResourceCheckoutForm from "@/components/ResourceCheckoutForm";
 import { useRole } from "@/components/RoleProvider";
+import { useToast } from "@/components/ToastProvider";
 
 interface Book {
   id: string;
@@ -34,7 +35,8 @@ function CheckoutContent() {
   const preselectedBookId = searchParams.get("bookId");
   const { role, teacherId: sessionTeacherId, teacherName: sessionTeacherName } = useRole();
   const isTeacherLocked = role === "teacher" && !!sessionTeacherId;
-  
+  const toast = useToast();
+
   const [mode, setMode] = useState<CheckoutMode>("book");
   const [books, setBooks] = useState<Book[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -43,7 +45,6 @@ function CheckoutContent() {
   const [selectedThemeId, setSelectedThemeId] = useState("");
   const [selectedTeacherId, setSelectedTeacherId] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [message, setMessage] = useState<{ type: "success" | "error" | "warning"; text: string } | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Lock teacher selection when in teacher mode
@@ -79,9 +80,8 @@ function CheckoutContent() {
     const book = books.find((b) => b.isbn === isbn);
     if (book) {
       setSelectedBook(book);
-      setMessage(null);
     } else {
-      setMessage({ type: "error", text: `No book found with ISBN ${isbn}` });
+      toast.error(`No book found with ISBN ${isbn}`);
     }
   };
 
@@ -89,7 +89,6 @@ function CheckoutContent() {
     if (!selectedBook || !selectedTeacherId) return;
     
     setLoading(true);
-    setMessage(null);
 
     try {
       const res = await fetch("/api/checkouts", {
@@ -100,20 +99,20 @@ function CheckoutContent() {
 
       if (res.ok) {
         const teacher = teachers.find((t) => t.id === selectedTeacherId);
-        setMessage({ type: "success", text: `"${selectedBook.title}" checked out to ${teacher?.name}!` });
+        toast.success(`"${selectedBook.title}" checked out to ${teacher?.name}!`);
         setSelectedBook(null);
         setSelectedTeacherId("");
         await fetchBooks();
       } else {
         const err = await res.json();
         if (res.status === 403) {
-          setMessage({ type: "warning", text: err.error });
+          toast.warning(`Restricted: ${err.error}`);
         } else {
-          setMessage({ type: "error", text: err.error || "Checkout failed" });
+          toast.error(err.error || "Checkout failed");
         }
       }
     } catch {
-      setMessage({ type: "error", text: "Something went wrong" });
+      toast.error("Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -123,7 +122,6 @@ function CheckoutContent() {
     if (!selectedThemeId || !selectedTeacherId) return;
 
     setLoading(true);
-    setMessage(null);
 
     try {
       const res = await fetch("/api/checkouts", {
@@ -135,16 +133,16 @@ function CheckoutContent() {
       if (res.ok) {
         const teacher = teachers.find((t) => t.id === selectedTeacherId);
         const theme = themes.find((t) => t.id === selectedThemeId);
-        setMessage({ type: "success", text: `Theme "${theme?.name}" checked out to ${teacher?.name}!` });
+        toast.success(`Theme "${theme?.name}" checked out to ${teacher?.name}!`);
         setSelectedThemeId("");
         setSelectedTeacherId("");
         await fetchBooks();
       } else {
         const err = await res.json();
-        setMessage({ type: "error", text: err.error || "Checkout failed" });
+        toast.error(err.error || "Checkout failed");
       }
     } catch {
-      setMessage({ type: "error", text: "Something went wrong" });
+      toast.error("Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -165,7 +163,7 @@ function CheckoutContent() {
       {/* Mode toggle */}
       <div className="flex gap-2">
         <button
-          onClick={() => { setMode("book"); setMessage(null); }}
+          onClick={() => { setMode("book"); }}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
             mode === "book" ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
@@ -173,7 +171,7 @@ function CheckoutContent() {
           📖 Individual Book
         </button>
         <button
-          onClick={() => { setMode("theme"); setMessage(null); }}
+          onClick={() => { setMode("theme"); }}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
             mode === "theme" ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
@@ -181,7 +179,7 @@ function CheckoutContent() {
           📚 Teacher Resource Theme
         </button>
         <button
-          onClick={() => { setMode("resource"); setMessage(null); }}
+          onClick={() => { setMode("resource"); }}
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
             mode === "resource" ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
@@ -189,17 +187,6 @@ function CheckoutContent() {
           📦 Individual Resource
         </button>
       </div>
-
-      {message && (
-        <div className={`p-4 rounded-lg ${
-          message.type === "success" ? "bg-green-50 border border-green-200 text-green-700"
-            : message.type === "warning" ? "bg-amber-50 border border-amber-200 text-amber-700"
-            : "bg-red-50 border border-red-200 text-red-700"
-        }`}>
-          {message.type === "warning" && <span className="font-semibold">⚠️ Restricted: </span>}
-          {message.text}
-        </div>
-      )}
 
       {mode === "book" && (
         <>
@@ -222,7 +209,7 @@ function CheckoutContent() {
                   {filteredBooks.map((book) => (
                     <button
                       key={book.id}
-                      onClick={() => { setSelectedBook(book); setSearchQuery(""); setMessage(null); }}
+                      onClick={() => { setSelectedBook(book); setSearchQuery(""); }}
                       className="w-full text-left px-4 py-2 hover:bg-gray-50 border-b last:border-b-0"
                       disabled={book.availableCopies <= 0}
                     >
@@ -303,7 +290,7 @@ function CheckoutContent() {
             </p>
             <select
               value={selectedThemeId}
-              onChange={(e) => { setSelectedThemeId(e.target.value); setMessage(null); }}
+              onChange={(e) => { setSelectedThemeId(e.target.value); }}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
             >
               <option value="">Select a theme...</option>

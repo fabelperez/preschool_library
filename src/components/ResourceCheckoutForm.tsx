@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRole } from "@/components/RoleProvider";
+import { useToast } from "@/components/ToastProvider";
 
 interface Teacher {
   id: string;
@@ -41,10 +42,7 @@ export default function ResourceCheckoutForm({
   const [selectedBinId, setSelectedBinId] = useState("");
   const [selectedResourceId, setSelectedResourceId] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
+  const toast = useToast();
 
   // Lock teacher when in teacher mode
   useEffect(() => {
@@ -79,7 +77,6 @@ export default function ResourceCheckoutForm({
     if (!selectedResourceId || !selectedTeacherId) return;
 
     setLoading(true);
-    setMessage(null);
 
     try {
       const res = await fetch("/api/resource-checkouts", {
@@ -93,12 +90,9 @@ export default function ResourceCheckoutForm({
       const data = await res.json();
 
       if (!res.ok) {
-        setMessage({ type: "error", text: data.error || "Failed to check out" });
+        toast.error(data.error || "Failed to check out");
       } else {
-        setMessage({
-          type: "success",
-          text: `✅ ${data.resource.name} checked out to ${data.teacher.name}!`,
-        });
+        toast.success(`✅ ${data.resource.name} checked out to ${data.teacher.name}!`);
         setSelectedResourceId("");
         if (selectedBinId) {
           const raw = await fetch(
@@ -108,7 +102,7 @@ export default function ResourceCheckoutForm({
         }
       }
     } catch {
-      setMessage({ type: "error", text: "Network error" });
+      toast.error("Network error");
     } finally {
       setLoading(false);
     }
@@ -116,18 +110,6 @@ export default function ResourceCheckoutForm({
 
   return (
     <div className="space-y-4">
-      {message && (
-        <div
-          className={`p-4 rounded-lg border ${
-            message.type === "success"
-              ? "bg-green-50 border-green-200 text-green-700"
-              : "bg-red-50 border-red-200 text-red-700"
-          }`}
-        >
-          {message.text}
-        </div>
-      )}
-
       {/* Step 1: Find the resource */}
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
         <h2 className="font-semibold text-amber-800 mb-3">

@@ -29,6 +29,7 @@ const adminLinks = [
   { href: "/admin/resources", label: "📦 Resources" },
   { href: "/admin/shelves/layout", label: "📐 Room Layout" },
   { href: "/admin/teachers", label: "👩‍🏫 Teachers" },
+  { href: "/admin/reports", label: "📊 Reports" },
 ];
 
 export default function Navbar() {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { useToast } from "@/components/ToastProvider";
 
 interface Teacher {
   id: string;
@@ -33,6 +34,7 @@ interface Shelf {
 function ResourceCheckoutContent() {
   const searchParams = useSearchParams();
   const preselectedResourceId = searchParams.get("resourceId") || "";
+  const toast = useToast();
 
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [shelves, setShelves] = useState<Shelf[]>([]);
@@ -42,7 +44,6 @@ function ResourceCheckoutContent() {
   const [selectedBinId, setSelectedBinId] = useState("");
   const [selectedResourceId, setSelectedResourceId] = useState(preselectedResourceId);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -81,7 +82,6 @@ function ResourceCheckoutContent() {
     if (!selectedResourceId || !selectedTeacherId) return;
 
     setLoading(true);
-    setMessage(null);
 
     try {
       const res = await fetch("/api/resource-checkouts", {
@@ -92,12 +92,9 @@ function ResourceCheckoutContent() {
       const data = await res.json();
 
       if (!res.ok) {
-        setMessage({ type: "error", text: data.error || "Failed to check out" });
+        toast.error(data.error || "Failed to check out");
       } else {
-        setMessage({
-          type: "success",
-          text: `✅ ${data.resource.name} checked out to ${data.teacher.name}!`,
-        });
+        toast.success(`✅ ${data.resource.name} checked out to ${data.teacher.name}!`);
         setSelectedResourceId("");
         // Refresh resources list
         if (selectedBinId) {
@@ -106,7 +103,7 @@ function ResourceCheckoutContent() {
         }
       }
     } catch {
-      setMessage({ type: "error", text: "Network error" });
+      toast.error("Network error");
     } finally {
       setLoading(false);
     }
@@ -115,14 +112,6 @@ function ResourceCheckoutContent() {
   return (
     <div className="space-y-6 max-w-xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-900">✅ Check Out Resource</h1>
-
-      {message && (
-        <div className={`p-4 rounded-lg border ${
-          message.type === "success" ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-700"
-        }`}>
-          {message.text}
-        </div>
-      )}
 
       <form onSubmit={handleCheckout} className="space-y-4">
         <div>

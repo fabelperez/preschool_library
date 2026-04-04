@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useToast } from "@/components/ToastProvider";
 
 interface ActiveCheckout {
   id: string;
@@ -19,10 +20,10 @@ interface ActiveCheckout {
 }
 
 export default function ResourceCheckinPage() {
+  const toast = useToast();
   const [checkouts, setCheckouts] = useState<ActiveCheckout[]>([]);
   const [loading, setLoading] = useState(true);
   const [returning, setReturning] = useState<string | null>(null);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const fetchCheckouts = () => {
     setLoading(true);
@@ -37,7 +38,6 @@ export default function ResourceCheckinPage() {
 
   const handleReturn = async (checkoutId: string) => {
     setReturning(checkoutId);
-    setMessage(null);
 
     try {
       const res = await fetch("/api/resource-checkouts/return", {
@@ -48,16 +48,13 @@ export default function ResourceCheckinPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setMessage({ type: "error", text: data.error || "Failed to return" });
+        toast.error(data.error || "Failed to return");
       } else {
-        setMessage({
-          type: "success",
-          text: `✅ ${data.resource.name} returned by ${data.teacher.name}!`,
-        });
+        toast.success(`✅ ${data.resource.name} returned by ${data.teacher.name}!`);
         fetchCheckouts();
       }
     } catch {
-      setMessage({ type: "error", text: "Network error" });
+      toast.error("Network error");
     } finally {
       setReturning(null);
     }
@@ -66,14 +63,6 @@ export default function ResourceCheckinPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">↩️ Return Resources</h1>
-
-      {message && (
-        <div className={`p-4 rounded-lg border ${
-          message.type === "success" ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-700"
-        }`}>
-          {message.text}
-        </div>
-      )}
 
       {loading ? (
         <div className="text-center py-12 text-gray-500">Loading active checkouts...</div>

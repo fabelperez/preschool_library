@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRole } from "@/components/RoleProvider";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ToastProvider";
 
 interface CheckoutRecord {
   id: string;
@@ -48,13 +49,10 @@ const TYPE_LABEL: Record<string, string> = {
 export default function MyCheckoutsPage() {
   const { role, teacherId, teacherName } = useRole();
   const router = useRouter();
+  const toast = useToast();
   const [checkouts, setCheckouts] = useState<CheckoutRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [returning, setReturning] = useState<string | null>(null);
-  const [message, setMessage] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
 
   // Redirect if no teacher identity
   useEffect(() => {
@@ -80,7 +78,6 @@ export default function MyCheckoutsPage() {
 
   const handleReturn = async (co: CheckoutRecord) => {
     setReturning(co.id);
-    setMessage(null);
 
     const endpoint =
       co.type === "resource"
@@ -95,17 +92,14 @@ export default function MyCheckoutsPage() {
       });
 
       if (res.ok) {
-        setMessage({
-          type: "success",
-          text: `${TYPE_ICON[co.type]} "${co.itemName}" returned!`,
-        });
+        toast.success(`${TYPE_ICON[co.type]} "${co.itemName}" returned!`);
         fetchMyCheckouts();
       } else {
         const err = await res.json();
-        setMessage({ type: "error", text: err.error || "Return failed" });
+        toast.error(err.error || "Return failed");
       }
     } catch {
-      setMessage({ type: "error", text: "Something went wrong" });
+      toast.error("Something went wrong");
     } finally {
       setReturning(null);
     }
@@ -128,18 +122,6 @@ export default function MyCheckoutsPage() {
           </p>
         )}
       </div>
-
-      {message && (
-        <div
-          className={`p-4 rounded-lg ${
-            message.type === "success"
-              ? "bg-green-50 border border-green-200 text-green-700"
-              : "bg-red-50 border border-red-200 text-red-700"
-          }`}
-        >
-          {message.text}
-        </div>
-      )}
 
       {/* Summary badges */}
       {!loading && checkouts.length > 0 && (
