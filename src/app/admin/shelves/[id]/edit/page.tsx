@@ -6,6 +6,7 @@ import Link from "next/link";
 import AdminHeader from "@/components/AdminHeader";
 import { groupByTheme } from "@/lib/groupByTheme";
 import { useConfirm } from "@/hooks/useConfirm";
+import { useToast } from "@/components/ToastProvider";
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -37,6 +38,8 @@ interface ResourceItem {
   name: string;
   description: string | null;
   quantity: number;
+  status: string;
+  statusNote: string | null;
   resourceCategory: ResourceCategory | null;
   resourceCategoryId: string;
 }
@@ -222,6 +225,7 @@ function ResourceShelfPanel({
   onMessage: (m: { type: "success" | "error"; text: string }) => void;
 }) {
   const { confirm: confirmDialog, ConfirmDialogHost } = useConfirm();
+  const toast = useToast();
   const [newBinLabel, setNewBinLabel] = useState("");
   const [newThemeName, setNewThemeName] = useState("");
   const [addingBin, setAddingBin] = useState(false);
@@ -267,6 +271,24 @@ function ResourceShelfPanel({
     await fetch(`/api/bins/${binId}`, { method: "DELETE" });
     onMessage({ type: "success", text: "Bin deleted" });
     onRefresh();
+  };
+
+  const handleResourceStatus = async (resourceId: string, newStatus: "available" | "lost" | "damaged") => {
+    if (newStatus === "lost") {
+      const ok = await confirmDialog({ title: "Mark resource as Lost?", description: "It will be unavailable for checkout.", confirmText: "Mark Lost" });
+      if (!ok) return;
+    }
+    const res = await fetch(`/api/resources/${resourceId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (res.ok) {
+      toast.success(newStatus === "available" ? "Resource restored." : `Resource marked as ${newStatus}.`);
+      onRefresh();
+    } else {
+      toast.error("Failed to update resource status");
+    }
   };
 
   const handleAddTheme = async () => {
@@ -407,11 +429,23 @@ function ResourceShelfPanel({
                       <p className="text-xs font-medium text-amber-700 mb-1">🎨 {theme.themeName}</p>
                       <div className="space-y-1">
                         {theme.resources.map((r) => (
-                          <div key={r.id} className="flex justify-between items-center text-sm bg-green-50 px-2 py-1 rounded">
-                            <span>🧩 {r.name}</span>
-                            <span className="text-xs text-gray-500">
-                              {(r.resourceCategory as ResourceCategory | null)?.name} · qty: {r.quantity}
+                          <div key={r.id} className="flex justify-between items-center text-sm bg-green-50 px-2 py-1.5 rounded gap-2">
+                            <span className="flex items-center gap-1.5 min-w-0">
+                              🧩 <span className="truncate">{r.name}</span>
+                              {r.status === "lost" && <span className="text-xs px-1.5 py-0.5 bg-gray-200 text-gray-600 rounded-full shrink-0">🔍 Lost</span>}
+                              {r.status === "damaged" && <span className="text-xs px-1.5 py-0.5 bg-orange-100 text-orange-700 rounded-full shrink-0">🔧 Damaged</span>}
                             </span>
+                            <div className="flex gap-1 shrink-0">
+                              {r.status !== "lost" && (
+                                <button onClick={() => handleResourceStatus(r.id, "lost")} title="Mark Lost" className="text-xs text-gray-400 hover:text-gray-700 px-1">🔍</button>
+                              )}
+                              {r.status !== "damaged" && (
+                                <button onClick={() => handleResourceStatus(r.id, "damaged")} title="Mark Damaged" className="text-xs text-orange-300 hover:text-orange-600 px-1">🔧</button>
+                              )}
+                              {r.status !== "available" && (
+                                <button onClick={() => handleResourceStatus(r.id, "available")} title="Restore" className="text-xs text-green-400 hover:text-green-700 px-1">✅</button>
+                              )}
+                            </div>
                           </div>
                         ))}
                         {theme.books.map((b) => (

@@ -85,3 +85,24 @@ export async function DELETE(
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const body = await request.json();
+    const { status, statusNote } = body;
+    if (!["available", "lost", "damaged"].includes(status)) {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    }
+    const resource = await prisma.resource.update({
+      where: { id: params.id },
+      data: { status, statusNote: statusNote ?? null, statusUpdatedAt: new Date() },
+    });
+    return NextResponse.json(resource);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Failed to update resource status";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

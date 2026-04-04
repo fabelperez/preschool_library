@@ -14,6 +14,8 @@ interface Book {
   coverImageUrl: string | null;
   totalCopies: number;
   availableCopies: number;
+  status: string;
+  createdAt: string;
   category: { id: string; name: string } | null;
   checkedOutBy: { teacherName: string; checkedOutAt: string }[];
 }
@@ -23,11 +25,14 @@ interface Category {
   name: string;
 }
 
+const NEW_ARRIVAL_DAYS = 30;
+
 function BooksContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const query = searchParams.get("q") || "";
   const categoryId = searchParams.get("categoryId") || "";
+  const statusFilter = searchParams.get("status") || "";
   const [books, setBooks] = useState<Book[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +67,24 @@ function BooksContent() {
     router.push(`/books?${params.toString()}`);
   };
 
+  const handleStatusChange = (newStatus: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (newStatus) {
+      params.set("status", newStatus);
+    } else {
+      params.delete("status");
+    }
+    router.push(`/books?${params.toString()}`);
+  };
+
+  const filteredBooks = books.filter((b) => {
+    if (statusFilter === "new") {
+      return (Date.now() - new Date(b.createdAt).getTime()) / 86400000 < NEW_ARRIVAL_DAYS;
+    }
+    if (statusFilter === "lost" || statusFilter === "damaged") return b.status === statusFilter;
+    return true;
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -90,6 +113,16 @@ function BooksContent() {
             </option>
           ))}
         </select>
+        <select
+          value={statusFilter}
+          onChange={(e) => handleStatusChange(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-700 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+        >
+          <option value="">All Status</option>
+          <option value="new">🆕 New Arrivals</option>
+          <option value="lost">🔍 Lost</option>
+          <option value="damaged">🔧 Damaged</option>
+        </select>
       </div>
 
       {(query || categoryId) && (
@@ -112,7 +145,7 @@ function BooksContent() {
         </div>
       ) : (
         <div className="grid gap-3">
-          {books.map((book) => (
+          {filteredBooks.map((book) => (
             <BookCard
               key={book.id}
               id={book.id}
@@ -123,6 +156,8 @@ function BooksContent() {
               totalCopies={book.totalCopies}
               availableCopies={book.availableCopies}
               checkedOutBy={book.checkedOutBy}
+              status={book.status}
+              createdAt={book.createdAt}
             />
           ))}
         </div>

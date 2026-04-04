@@ -82,6 +82,9 @@ model Book {
   resource           Resource?         @relation(fields: [resourceId], references: [id], onDelete: SetNull)
   resourceCategoryId String?
   resourceCategory   ResourceCategory? @relation(fields: [resourceCategoryId], references: [id], onDelete: SetNull)
+  status             String            @default("available") // "available" | "lost" | "damaged"
+  statusNote         String?
+  statusUpdatedAt    DateTime?
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   checkouts          Checkout[]
@@ -119,6 +122,9 @@ model Resource {
   resourceCategory   ResourceCategory   @relation(fields: [resourceCategoryId], references: [id])
   binId              String
   bin                Bin                @relation(fields: [binId], references: [id], onDelete: Cascade)
+  status             String             @default("available") // "available" | "lost" | "damaged"
+  statusNote         String?
+  statusUpdatedAt    DateTime?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   checkouts          ResourceCheckout[]
