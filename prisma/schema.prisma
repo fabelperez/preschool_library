@@ -85,6 +85,8 @@ model Book {
   status             String            @default("available") // "available" | "lost" | "damaged"
   statusNote         String?
   statusUpdatedAt    DateTime?
+  lostCopies         Int               @default(0)
+  damagedCopies      Int               @default(0)
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   checkouts          Checkout[]

@@ -86,14 +86,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Book not found" }, { status: 404 });
     }
 
-    if (book.status === "lost") {
-      return NextResponse.json({ error: "This book is marked as lost and cannot be checked out." }, { status: 400 });
+    if (book.lostCopies >= book.totalCopies) {
+      return NextResponse.json({ error: "All copies of this book are lost and cannot be checked out." }, { status: 400 });
     }
-    if (book.status === "damaged") {
-      return NextResponse.json({ error: "This book is marked as damaged and is unavailable for checkout." }, { status: 400 });
+    if (book.lostCopies + book.damagedCopies >= book.totalCopies) {
+      return NextResponse.json({ error: "All copies of this book are damaged and unavailable for checkout." }, { status: 400 });
     }
 
-    const availableCopies = book.totalCopies - book.checkouts.length;
+    const availableCopies = book.totalCopies - book.checkouts.length - book.lostCopies - book.damagedCopies;
     if (availableCopies <= 0) {
       return NextResponse.json({ error: "No copies available" }, { status: 400 });
     }

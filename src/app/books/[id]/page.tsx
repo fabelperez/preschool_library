@@ -21,7 +21,8 @@ interface Book {
   coverImageUrl: string | null;
   totalCopies: number;
   availableCopies: number;
-  status: string;
+  lostCopies: number;
+  damagedCopies: number;
   statusNote: string | null;
   createdAt: string;
   category: { id: string; name: string } | null;
@@ -46,6 +47,8 @@ export default function BookDetailPage() {
   const [book, setBook] = useState<Book | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusNote, setStatusNote] = useState("");
+  const [pendingLost, setPendingLost] = useState<number | null>(null);
+  const [pendingDamaged, setPendingDamaged] = useState<number | null>(null);
 
   useEffect(() => {
     fetch(`/api/books/${params.id}`)
@@ -62,21 +65,21 @@ export default function BookDetailPage() {
     router.push("/books");
   };
 
-  const handleStatusChange = async (newStatus: "available" | "lost" | "damaged") => {
-    if (newStatus === "lost") {
-      const ok = await confirm({ title: "Mark as Lost?", description: "This book will be marked as lost and become unavailable for checkout.", confirmText: "Mark Lost" });
-      if (!ok) return;
-    }
+  const handleStatusChange = async () => {
+    const lost = pendingLost ?? book!.lostCopies;
+    const damaged = pendingDamaged ?? book!.damagedCopies;
     const res = await fetch(`/api/books/${params.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: newStatus, statusNote: newStatus === "available" ? null : statusNote }),
+      body: JSON.stringify({ lostCopies: lost, damagedCopies: damaged, statusNote: statusNote || null }),
     });
     if (res.ok) {
       const updated = await res.json();
-      setBook((b) => b ? { ...b, status: updated.status, statusNote: updated.statusNote } : b);
+      setBook((b) => b ? { ...b, lostCopies: updated.lostCopies, damagedCopies: updated.damagedCopies, statusNote: updated.statusNote } : b);
+      setPendingLost(null);
+      setPendingDamaged(null);
       setStatusNote("");
-      toast.success(newStatus === "available" ? "Book restored to available." : `Book marked as ${newStatus}.`);
+      toast.success("Copy counts updated.");
     } else {
       toast.error("Failed to update status");
     }
@@ -119,19 +122,17 @@ export default function BookDetailPage() {
                   {book.category.name}
                 </span>
               )}
-              {book.status === "lost" && (
-                <span className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-full font-medium">🔍 Lost</span>
+              {book.lostCopies > 0 && (
+                <span className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded-full font-medium">🔍 {book.lostCopies} Lost</span>
               )}
-              {book.status === "damaged" && (
-                <span className="px-3 py-1 text-sm bg-orange-100 text-orange-700 rounded-full font-medium">🔧 Damaged</span>
+              {book.damagedCopies > 0 && (
+                <span className="px-3 py-1 text-sm bg-orange-100 text-orange-700 rounded-full font-medium">🔧 {book.damagedCopies} Damaged</span>
               )}
-              {book.status === "available" && (
-                <span className={`px-3 py-1 text-sm rounded-full ${
-                  book.availableCopies > 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                }`}>
-                  {book.availableCopies}/{book.totalCopies} available
-                </span>
-              )}
+              <span className={`px-3 py-1 text-sm rounded-full ${
+                book.availableCopies > 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+              }`}>
+                {book.availableCopies}/{book.totalCopies} available
+              </span>
             </div>
 
             {book.statusNote && (
@@ -159,7 +160,7 @@ export default function BookDetailPage() {
               >
                 Edit
               </Link>
-              {!book.resource && book.availableCopies > 0 && book.status === "available" && (
+              {!book.resource && book.availableCopies > 0 && (
                 <Link
                   href={`/checkout?bookId=${book.id}`}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
@@ -177,26 +178,62 @@ export default function BookDetailPage() {
 
             {/* Status management */}
             <div className="mt-4 pt-4 border-t border-gray-100">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Item Status</p>
-              {book.status !== "available" && (
-                <input
-                  type="text"
-                  value={statusNote}
-                  onChange={(e) => setStatusNote(e.target.value)}
-                  placeholder="Optional note (reason, details...)"
-                  className="w-full mb-2 px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                />
-              )}
-              <div className="flex gap-2 flex-wrap">
-                {book.status !== "lost" && (
-                  <button onClick={() => handleStatusChange("lost")} className="px-3 py-1.5 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium">🔍 Mark Lost</button>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Copy Status</p>
+              <div className="flex flex-col gap-3">
+                {/* Lost copies stepper */}
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-gray-600 w-28">🔍 Lost copies</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setPendingLost(Math.max(0, (pendingLost ?? book.lostCopies) - 1))}
+                      className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 font-bold text-gray-700 flex items-center justify-center"
+                    >−</button>
+                    <span className="w-6 text-center font-semibold text-gray-800">
+                      {pendingLost ?? book.lostCopies}
+                    </span>
+                    <button
+                      onClick={() => setPendingLost(Math.min(book.totalCopies, (pendingLost ?? book.lostCopies) + 1))}
+                      className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 font-bold text-gray-700 flex items-center justify-center"
+                    >+</button>
+                  </div>
+                </div>
+                {/* Damaged copies stepper */}
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-gray-600 w-28">🔧 Damaged copies</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setPendingDamaged(Math.max(0, (pendingDamaged ?? book.damagedCopies) - 1))}
+                      className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 font-bold text-gray-700 flex items-center justify-center"
+                    >−</button>
+                    <span className="w-6 text-center font-semibold text-gray-800">
+                      {pendingDamaged ?? book.damagedCopies}
+                    </span>
+                    <button
+                      onClick={() => setPendingDamaged(Math.min(book.totalCopies, (pendingDamaged ?? book.damagedCopies) + 1))}
+                      className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 font-bold text-gray-700 flex items-center justify-center"
+                    >+</button>
+                  </div>
+                </div>
+                {(pendingLost !== null || pendingDamaged !== null) && (
+                  <>
+                    <input
+                      type="text"
+                      value={statusNote}
+                      onChange={(e) => setStatusNote(e.target.value)}
+                      placeholder="Optional note (reason, details...)"
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <div className="flex gap-2">
+                      <button onClick={handleStatusChange} className="px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium">
+                        Save
+                      </button>
+                      <button onClick={() => { setPendingLost(null); setPendingDamaged(null); setStatusNote(""); }} className="px-3 py-1.5 text-xs bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200">
+                        Cancel
+                      </button>
+                    </div>
+                  </>
                 )}
-                {book.status !== "damaged" && (
-                  <button onClick={() => handleStatusChange("damaged")} className="px-3 py-1.5 text-xs bg-orange-50 text-orange-700 rounded-lg hover:bg-orange-100 font-medium">🔧 Mark Damaged</button>
-                )}
-                {book.status !== "available" && (
-                  <button onClick={() => handleStatusChange("available")} className="px-3 py-1.5 text-xs bg-green-50 text-green-700 rounded-lg hover:bg-green-100 font-medium">✅ Restore Available</button>
-                )}
+                {book.statusNote && <p className="text-xs text-gray-500 italic">Note: {book.statusNote}</p>}
               </div>
             </div>
           </div>

@@ -14,7 +14,8 @@ interface Book {
   coverImageUrl: string | null;
   totalCopies: number;
   availableCopies: number;
-  status: string;
+  lostCopies: number;
+  damagedCopies: number;
   createdAt: string;
   category: { id: string; name: string } | null;
   checkedOutBy: { teacherName: string; checkedOutAt: string }[];
@@ -81,7 +82,8 @@ function BooksContent() {
     if (statusFilter === "new") {
       return (Date.now() - new Date(b.createdAt).getTime()) / 86400000 < NEW_ARRIVAL_DAYS;
     }
-    if (statusFilter === "lost" || statusFilter === "damaged") return b.status === statusFilter;
+    if (statusFilter === "lost") return b.lostCopies > 0;
+    if (statusFilter === "damaged") return b.damagedCopies > 0;
     return true;
   });
 
@@ -156,7 +158,8 @@ function BooksContent() {
               totalCopies={book.totalCopies}
               availableCopies={book.availableCopies}
               checkedOutBy={book.checkedOutBy}
-              status={book.status}
+              lostCopies={book.lostCopies}
+              damagedCopies={book.damagedCopies}
               createdAt={book.createdAt}
             />
           ))}

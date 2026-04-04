@@ -48,12 +48,15 @@ export async function GET(request: NextRequest) {
     const bookThemeCatId = book.resourceCategoryId || book.resource?.resourceCategoryId || null;
     const themeCheckedOut = bookThemeCatId ? checkedOutThemes.has(bookThemeCatId) : false;
     let availableCopies: number;
-    if (themeCheckedOut || book.status === "lost" || book.status === "damaged") {
+    if (themeCheckedOut) {
       availableCopies = 0;
     } else if (book.resource) {
       availableCopies = Math.max(0, book.resource.quantity - book.resource.checkouts.length);
     } else {
-      availableCopies = book.totalCopies - book.checkouts.length;
+      availableCopies = Math.max(
+        0,
+        book.totalCopies - book.checkouts.length - book.lostCopies - book.damagedCopies
+      );
     }
     return {
       ...book,

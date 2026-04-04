@@ -12,7 +12,8 @@ interface BookCardProps {
   availableCopies: number;
   checkedOutBy?: { teacherName: string; checkedOutAt: string }[];
   shelfLocation?: string;
-  status?: string | null;
+  lostCopies?: number;
+  damagedCopies?: number;
   createdAt?: string | null;
 }
 
@@ -26,10 +27,11 @@ export default function BookCard({
   availableCopies,
   checkedOutBy = [],
   shelfLocation,
-  status = "available",
+  lostCopies = 0,
+  damagedCopies = 0,
   createdAt,
 }: BookCardProps) {
-  const isAvailable = availableCopies > 0 && status === "available";
+  const isAvailable = availableCopies > 0;
   const isNew = createdAt
     ? (Date.now() - new Date(createdAt).getTime()) / 86400000 < NEW_ARRIVAL_DAYS
     : false;
@@ -63,25 +65,23 @@ export default function BookCard({
                   {categoryName}
                 </span>
               )}
-              {status === "lost" && (
+              {lostCopies > 0 && (
                 <span className="inline-block px-2 py-0.5 text-xs bg-gray-200 text-gray-600 rounded-full font-medium">
-                  🔍 Lost
+                  🔍 {lostCopies} lost
                 </span>
               )}
-              {status === "damaged" && (
+              {damagedCopies > 0 && (
                 <span className="inline-block px-2 py-0.5 text-xs bg-orange-100 text-orange-700 rounded-full font-medium">
-                  🔧 Damaged
+                  🔧 {damagedCopies} damaged
                 </span>
               )}
-              {status === "available" && (
-                <span
-                  className={`inline-block px-2 py-0.5 text-xs rounded-full ${
-                    isAvailable ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                  }`}
-                >
-                  {availableCopies}/{totalCopies} available
-                </span>
-              )}
+              <span
+                className={`inline-block px-2 py-0.5 text-xs rounded-full ${
+                  isAvailable ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                }`}
+              >
+                {availableCopies}/{totalCopies} available
+              </span>
               {shelfLocation && (
                 <span className="inline-block px-2 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
                   📍 {shelfLocation}

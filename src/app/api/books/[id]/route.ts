@@ -39,7 +39,8 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
     const activeResourceCheckouts = book.resource.checkouts.filter((c) => !c.returnedAt);
     availableCopies = Math.max(0, book.resource.quantity - activeResourceCheckouts.length);
   } else {
-    availableCopies = book.totalCopies - book.checkouts.filter((c) => !c.returnedAt).length;
+    const activeCheckouts = book.checkouts.filter((c) => !c.returnedAt).length;
+    availableCopies = Math.max(0, book.totalCopies - activeCheckouts - book.lostCopies - book.damagedCopies);
   }
 
   return NextResponse.json({ ...book, availableCopies, themeCheckedOut });
@@ -87,15 +88,24 @@ export async function DELETE(_request: NextRequest, { params }: { params: { id: 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const body = await request.json();
-    const { status, statusNote } = body;
-    if (!["available", "lost", "damaged"].includes(status)) {
-      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
-    }
-    const book = await prisma.book.update({
+    const { lostCopies, damagedCopies, statusNote } = body;
+
+    const book = await prisma.book.findUnique({ where: { id: params.id }, select: { totalCopies: true } });
+    if (!book) return NextResponse.json({ error: "Book not found" }, { status: 404 });
+
+    const lost = Math.max(0, Math.min(Number(lostCopies ?? 0), book.totalCopies));
+    const damaged = Math.max(0, Math.min(Number(damagedCopies ?? 0), book.totalCopies - lost));
+
+    const updated = await prisma.book.update({
       where: { id: params.id },
-      data: { status, statusNote: statusNote ?? null, statusUpdatedAt: new Date() },
+      data: {
+        lostCopies: lost,
+        damagedCopies: damaged,
+        statusNote: statusNote ?? null,
+        statusUpdatedAt: new Date(),
+      },
     });
-    return NextResponse.json(book);
+    return NextResponse.json(updated);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Failed to update book status";
     return NextResponse.json({ error: message }, { status: 500 });
