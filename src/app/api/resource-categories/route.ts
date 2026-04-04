@@ -5,7 +5,7 @@ export async function GET() {
   const categories = await prisma.resourceCategory.findMany({
     orderBy: { name: "asc" },
     include: {
-      _count: { select: { resources: true } },
+      _count: { select: { resources: true, books: true } },
     },
   });
   return NextResponse.json(categories);

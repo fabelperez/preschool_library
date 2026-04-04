@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import BookCard from "@/components/BookCard";
 import ResourceCard from "@/components/ResourceCard";
+import ThemeCard, { type ActiveThemeCheckout } from "@/components/ThemeCard";
 
 /* ---------- types ---------- */
 
@@ -11,6 +12,19 @@ interface Category {
   id: string;
   name: string;
   _count?: { books?: number; resources?: number };
+}
+
+interface ThemeWithStatus {
+  id: string;
+  name: string;
+  description: string | null;
+  _count: { resources: number; books: number };
+  activeCheckout: ActiveThemeCheckout | null;
+}
+
+interface Teacher {
+  id: string;
+  name: string;
 }
 
 interface BookResult {
@@ -87,7 +101,8 @@ function BrowseContent() {
   const [books, setBooks] = useState<BookResult[]>([]);
   const [resources, setResources] = useState<ResourceResult[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [resourceCategories, setResourceCategories] = useState<Category[]>([]);
+  const [themes, setThemes] = useState<ThemeWithStatus[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasSearched, setHasSearched] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -105,7 +120,6 @@ function BrowseContent() {
         setBooks(data.books || []);
         setResources(data.resources || []);
         setCategories(data.categories || []);
-        setResourceCategories(data.resourceCategories || []);
         setHasSearched(true);
       } catch (err) {
         console.error("Browse fetch error:", err);
@@ -116,9 +130,48 @@ function BrowseContent() {
     []
   );
 
+  /* --- fetch themes + teachers for theme cards --- */
+  const fetchThemesAndTeachers = useCallback(async () => {
+    try {
+      const [themesRes, checkoutsRes, teachersRes] = await Promise.all([
+        fetch("/api/resource-categories"),
+        fetch("/api/checkouts"),
+        fetch("/api/teachers"),
+      ]);
+      const [themesData, checkoutsData, teachersData] = await Promise.all([
+        themesRes.json(),
+        checkoutsRes.json(),
+        teachersRes.json(),
+      ]);
+
+      // Build a map of resourceCategoryId → active theme checkout
+      const themeCheckoutMap = new Map<string, ActiveThemeCheckout>();
+      for (const co of checkoutsData) {
+        if (co.type === "THEME" && co.resourceCategoryId) {
+          themeCheckoutMap.set(co.resourceCategoryId, {
+            id: co.id,
+            teacherName: co.teacher?.name ?? "Unknown",
+            checkedOutAt: co.checkedOutAt,
+          });
+        }
+      }
+
+      setThemes(
+        themesData.map((t: ThemeWithStatus) => ({
+          ...t,
+          activeCheckout: themeCheckoutMap.get(t.id) ?? null,
+        }))
+      );
+      setTeachers(teachersData.map((t: Teacher) => ({ id: t.id, name: t.name })));
+    } catch (err) {
+      console.error("Failed to fetch themes/teachers:", err);
+    }
+  }, []);
+
   /* initial load */
   useEffect(() => {
     fetchResults(initialQ, initialCat);
+    fetchThemesAndTeachers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -172,6 +225,30 @@ function BrowseContent() {
           Find books and resources for your classroom!
         </p>
       </div>
+
+      {/* ---- resource themes section ---- */}
+      {themes.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+            🎨 Resource Themes
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {themes.map((theme) => (
+              <ThemeCard
+                key={theme.id}
+                id={theme.id}
+                name={theme.name}
+                description={theme.description}
+                resourceCount={theme._count.resources}
+                bookCount={theme._count.books}
+                activeCheckout={theme.activeCheckout}
+                teachers={teachers}
+                onCheckoutChange={fetchThemesAndTeachers}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ---- search bar ---- */}
       <div className="max-w-2xl mx-auto">
@@ -245,30 +322,6 @@ function BrowseContent() {
                   </span>
                 )}
               </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ---- resource theme tiles ---- */}
-      {resourceCategories.length > 0 && tab !== "books" && (
-        <div>
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
-            Resource Themes
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {resourceCategories.map((rc) => (
-              <span
-                key={rc.id}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-sm bg-amber-50 text-amber-700 border border-amber-200"
-              >
-                🎨 {rc.name}
-                {rc._count?.resources != null && (
-                  <span className="text-xs text-amber-500">
-                    ({rc._count.resources})
-                  </span>
-                )}
-              </span>
             ))}
           </div>
         </div>
