@@ -83,10 +83,11 @@ export async function GET(request: NextRequest) {
 
   const resourcesWithAvailability = resources.map((r) => {
     const themeCheckedOut = r.resourceCategoryId ? checkedOutThemes.has(r.resourceCategoryId) : false;
+    const isUnavailable = r.status === "lost" || r.status === "damaged";
     return {
       ...r,
       themeCheckedOut,
-      availableQuantity: themeCheckedOut ? 0 : r.quantity - r.checkouts.length,
+      availableQuantity: isUnavailable ? 0 : (themeCheckedOut ? 0 : r.quantity - r.checkouts.length),
       checkedOutBy: r.checkouts.map((c) => ({
         teacherName: c.teacher.name,
         checkedOutAt: c.checkedOutAt,

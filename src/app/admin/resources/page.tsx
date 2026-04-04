@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import AdminHeader from "@/components/AdminHeader";
 import { useToast } from "@/components/ToastProvider";
+import { useConfirm } from "@/hooks/useConfirm";
 
 interface ResourceCategory {
   id: string;
@@ -28,6 +29,17 @@ interface Shelf {
   bins: { id: string; number: number; label: string | null; _count: { resources: number; books: number } }[];
 }
 
+interface ResourceItem {
+  id: string;
+  name: string;
+  description: string | null;
+  quantity: number;
+  status: string;
+  statusNote: string | null;
+  resourceCategory: { id: string; name: string } | null;
+  bin: { id: string; label: string | null; number: number; shelf: { name: string } } | null;
+}
+
 const TABS = ["Shelves", "Themes", "Resources"] as const;
 type Tab = typeof TABS[number];
 
@@ -35,8 +47,10 @@ export default function AdminResourcesPage() {
   const [shelves, setShelves] = useState<Shelf[]>([]);
   const [categories, setCategories] = useState<ResourceCategory[]>([]);
   const [books, setBooks] = useState<BookSummary[]>([]);
+  const [resources, setResources] = useState<ResourceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("Shelves");
+  const [statusFilter, setStatusFilter] = useState<"all" | "available" | "lost" | "damaged">("all");
 
   // New shelf form
   const [newShelfName, setNewShelfName] = useState("");
@@ -59,6 +73,7 @@ export default function AdminResourcesPage() {
   const [newResCatName, setNewResCatName] = useState("");
 
   const toast = useToast();
+  const { confirm, ConfirmDialogHost } = useConfirm();
 
   const fetchData = () => {
     setLoading(true);
@@ -66,10 +81,12 @@ export default function AdminResourcesPage() {
       fetch("/api/shelves").then((r) => r.json()),
       fetch("/api/resource-categories").then((r) => r.json()),
       fetch("/api/books").then((r) => r.json()),
-    ]).then(([s, c, b]) => {
+      fetch("/api/resources").then((r) => r.json()),
+    ]).then(([s, c, b, res]) => {
       setShelves(s.filter((shelf: Shelf) => shelf.type === "resource"));
       setCategories(c);
       setBooks(Array.isArray(b) ? b : (b.books ?? []));
+      setResources(Array.isArray(res.resources) ? res.resources : []);
     }).catch(console.error)
     .finally(() => setLoading(false));
   };
@@ -289,6 +306,36 @@ export default function AdminResourcesPage() {
     } else {
       const data = await res.json();
       toast.error(data.error || "Failed to create resource");
+    }
+  };
+
+  const handleResourceStatusChange = async (
+    resource: ResourceItem,
+    newStatus: "available" | "lost" | "damaged",
+    note?: string
+  ) => {
+    if (newStatus === "lost") {
+      const ok = await confirm({
+        title: "Mark Resource as Lost?",
+        description: `"${resource.name}" will be marked as lost and unavailable for checkout.`,
+        confirmText: "Mark Lost",
+        cancelText: "Cancel",
+      });
+      if (!ok) return;
+    }
+    const res = await fetch(`/api/resources/${resource.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: newStatus, statusNote: note ?? null }),
+    });
+    if (res.ok) {
+      toast.success(
+        newStatus === "available" ? "Restored to available" :
+        newStatus === "lost" ? "Marked as lost" : "Marked as damaged"
+      );
+      fetchData();
+    } else {
+      toast.error("Failed to update status");
     }
   };
 
@@ -589,8 +636,92 @@ export default function AdminResourcesPage() {
 
       {/* Resources tab */}
       {activeTab === "Resources" && (
-        <section className="bg-white border rounded-xl p-5">
-          <h2 className="font-semibold text-lg text-gray-800 mb-4">➕ Add Resource</h2>
+        <div className="space-y-6">
+          {/* Existing resources list */}
+          <section className="bg-white border rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b flex items-center justify-between">
+              <h2 className="font-semibold text-lg text-gray-800">📦 Resources ({resources.length})</h2>
+              <div className="flex gap-1">
+                {(["all", "available", "damaged", "lost"] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setStatusFilter(f)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                      statusFilter === f
+                        ? "bg-green-600 text-white"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <ul className="divide-y">
+              {resources
+                .filter((r) => statusFilter === "all" || r.status === statusFilter)
+                .map((r) => (
+                  <li key={r.id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-gray-800 text-sm">{r.name}</span>
+                        {r.status === "lost" && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Lost</span>
+                        )}
+                        {r.status === "damaged" && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">Damaged</span>
+                        )}
+                        {r.status === "available" && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Available</span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-0.5">
+                        {r.resourceCategory?.name && <span>{r.resourceCategory.name}</span>}
+                        {r.bin && <span> · {r.bin.shelf.name} › {r.bin.label || `Bin ${r.bin.number}`}</span>}
+                        <span> · qty {r.quantity}</span>
+                        {r.statusNote && <span className="italic"> · {r.statusNote}</span>}
+                      </div>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      {r.status !== "lost" && (
+                        <button
+                          onClick={() => handleResourceStatusChange(r, "lost")}
+                          className="px-2 py-1 text-xs rounded-lg bg-red-50 text-red-700 hover:bg-red-100 font-medium"
+                        >
+                          Lost
+                        </button>
+                      )}
+                      {r.status !== "damaged" && (
+                        <button
+                          onClick={() => {
+                            const note = window.prompt("Optional note about the damage:");
+                            handleResourceStatusChange(r, "damaged", note ?? undefined);
+                          }}
+                          className="px-2 py-1 text-xs rounded-lg bg-orange-50 text-orange-700 hover:bg-orange-100 font-medium"
+                        >
+                          Damaged
+                        </button>
+                      )}
+                      {r.status !== "available" && (
+                        <button
+                          onClick={() => handleResourceStatusChange(r, "available")}
+                          className="px-2 py-1 text-xs rounded-lg bg-green-50 text-green-700 hover:bg-green-100 font-medium"
+                        >
+                          Restore
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              {resources.filter((r) => statusFilter === "all" || r.status === statusFilter).length === 0 && (
+                <li className="px-5 py-8 text-center text-gray-400 text-sm">No resources found.</li>
+              )}
+            </ul>
+          </section>
+
+          {/* Add resource form */}
+          <section className="bg-white border rounded-xl p-5">
+            <h2 className="font-semibold text-lg text-gray-800 mb-4">➕ Add Resource</h2>
           <form onSubmit={handleAddResource} className="space-y-3">
             <input
               type="text"
@@ -711,8 +842,10 @@ export default function AdminResourcesPage() {
               + Add Resource
             </button>
           </form>
-        </section>
+          </section>
+        </div>
       )}
+      <ConfirmDialogHost />
     </div>
   );
 }

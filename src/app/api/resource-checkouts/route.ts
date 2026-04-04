@@ -41,6 +41,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Resource not found" }, { status: 404 });
     }
 
+    if (resource.status === "lost") {
+      return NextResponse.json({ error: "This resource is marked as lost and cannot be checked out" }, { status: 400 });
+    }
+    if (resource.status === "damaged") {
+      return NextResponse.json({ error: "This resource is marked as damaged and cannot be checked out" }, { status: 400 });
+    }
+
     const available = resource.quantity - resource.checkouts.length;
     if (available <= 0) {
       return NextResponse.json({ error: "No units available" }, { status: 400 });

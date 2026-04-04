@@ -21,6 +21,8 @@ interface BookResult {
   coverImageUrl: string | null;
   totalCopies: number;
   availableCopies: number;
+  lostCopies: number;
+  damagedCopies: number;
   resultType: "book";
   isTeacherResource: boolean;
   themeName: string | null;
@@ -318,6 +320,8 @@ function BrowseContent() {
                     categoryName={book.category?.name}
                     totalCopies={book.totalCopies}
                     availableCopies={book.availableCopies}
+                    lostCopies={book.lostCopies}
+                    damagedCopies={book.damagedCopies}
                     checkedOutBy={book.checkedOutBy}
                     shelfLocation={book.locationPath || undefined}
                   />
