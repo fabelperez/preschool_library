@@ -73,13 +73,15 @@ async function main() {
     ],
   });
 
-  // Create sample teachers
+  // Create room color logins
   await prisma.teacher.createMany({
     data: [
-      { name: "Ms. Johnson", email: "johnson@school.edu" },
-      { name: "Mr. Rodriguez", email: "rodriguez@school.edu" },
-      { name: "Ms. Patel", email: "patel@school.edu" },
-      { name: "Mrs. Williams", email: "williams@school.edu" },
+      { name: "Orange" },
+      { name: "Yellow" },
+      { name: "Blue" },
+      { name: "Green" },
+      { name: "Purple" },
+      { name: "Rainbow" },
     ],
   });
 
