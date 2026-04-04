@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import RoleProvider from "@/components/RoleProvider";
+import ToastProvider from "@/components/ToastProvider";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -24,10 +25,12 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${geistSans.variable} font-sans antialiased bg-gray-50 min-h-screen`}>
         <RoleProvider>
-          <Navbar />
-          <main className="max-w-7xl mx-auto px-4 py-6">
-            {children}
-          </main>
+          <ToastProvider>
+            <Navbar />
+            <main className="max-w-7xl mx-auto px-4 py-6">
+              {children}
+            </main>
+          </ToastProvider>
         </RoleProvider>
       </body>
     </html>
