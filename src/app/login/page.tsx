@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useRole } from "@/components/RoleProvider";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { setRole } = useRole();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +27,8 @@ export default function LoginPage() {
     if (result?.error) {
       setError("Invalid username or password");
     } else {
-      router.push("/");
+      setRole("librarian");
+      router.push("/admin");
     }
 
     setLoading(false);
