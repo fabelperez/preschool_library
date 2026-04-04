@@ -226,30 +226,6 @@ function BrowseContent() {
         </p>
       </div>
 
-      {/* ---- resource themes section ---- */}
-      {themes.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-            🎨 Resource Themes
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {themes.map((theme) => (
-              <ThemeCard
-                key={theme.id}
-                id={theme.id}
-                name={theme.name}
-                description={theme.description}
-                resourceCount={theme._count.resources}
-                bookCount={theme._count.books}
-                activeCheckout={theme.activeCheckout}
-                teachers={teachers}
-                onCheckoutChange={fetchThemesAndTeachers}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* ---- search bar ---- */}
       <div className="max-w-2xl mx-auto">
         <div className="relative">
@@ -296,6 +272,30 @@ function BrowseContent() {
           </button>
         ))}
       </div>
+
+      {/* ---- resource themes section ---- */}
+      {themes.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+            🎨 Resource Themes
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {themes.map((theme) => (
+              <ThemeCard
+                key={theme.id}
+                id={theme.id}
+                name={theme.name}
+                description={theme.description}
+                resourceCount={theme._count.resources}
+                bookCount={theme._count.books}
+                activeCheckout={theme.activeCheckout}
+                teachers={teachers}
+                onCheckoutChange={fetchThemesAndTeachers}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ---- category quick-filter tiles ---- */}
       {categories.length > 0 && tab !== "resources" && (

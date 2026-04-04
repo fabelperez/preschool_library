@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { groupByTheme } from "@/lib/groupByTheme";
 import { useRole } from "@/components/RoleProvider";
@@ -167,6 +167,7 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [fixtures, setFixtures] = useState<RoomFixture[]>([]);
   const [checkoutLoadingId, setCheckoutLoadingId] = useState<string | null>(null);
+  const detailRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch("/api/room-fixtures")
@@ -188,6 +189,13 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
       .catch(console.error)
       .finally(() => setDetailLoading(false));
   }, [selectedShelf]);
+
+  // Scroll to detail panel once content loads
+  useEffect(() => {
+    if (shelfDetail && detailRef.current) {
+      detailRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [shelfDetail]);
 
   const refreshDetail = useCallback(() => {
     if (!selectedShelf) return;
@@ -370,7 +378,7 @@ export default function LibraryRoomView({ shelves }: { shelves: Shelf[] }) {
 
       {/* Detail panel */}
       {selectedShelf && (
-        <div className={`border-2 ${selectedShelf.type === "resource" ? "border-emerald-200" : "border-indigo-200"} rounded-xl bg-white shadow-lg overflow-hidden animate-in`}>
+        <div ref={detailRef} className={`border-2 ${selectedShelf.type === "resource" ? "border-emerald-200" : "border-indigo-200"} rounded-xl bg-white shadow-lg overflow-hidden animate-in`}>
           <div className={`${selectedShelf.type === "resource" ? "bg-emerald-600" : "bg-indigo-600"} text-white px-5 py-3 flex justify-between items-center`}>
             <h3 className="font-bold text-lg">{selectedShelf.type === "resource" ? "📦" : "🗄️"} {selectedShelf.name}</h3>
             <div className="flex items-center gap-3">
