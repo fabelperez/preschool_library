@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Rnd } from "react-rnd";
 import Link from "next/link";
+import { useConfirm } from "@/hooks/useConfirm";
 
 interface ShelfLayout {
   id: string;
@@ -40,6 +41,7 @@ const FIXTURE_PRESETS = [
 ];
 
 export default function ShelfLayoutEditorPage() {
+  const { confirm, ConfirmDialogHost } = useConfirm();
   const [shelves, setShelves] = useState<ShelfLayout[]>([]);
   const [fixtures, setFixtures] = useState<FixtureLayout[]>([]);
   const [loading, setLoading] = useState(true);
@@ -202,7 +204,12 @@ export default function ShelfLayoutEditorPage() {
     const label = selected.kind === "shelf"
       ? shelves.find((s) => s.id === selected.id)?.name
       : fixtures.find((f) => f.id === selected.id)?.label;
-    if (!confirm(`Delete "${label}"?`)) return;
+    const ok = await confirm({
+      title: `Delete "${label}"?`,
+      description: selected.kind === "shelf" ? "This will remove the shelf from the layout." : undefined,
+      confirmText: "Delete",
+    });
+    if (!ok) return;
 
     try {
       if (selected.kind === "shelf") {
@@ -235,6 +242,7 @@ export default function ShelfLayoutEditorPage() {
 
   return (
     <div className="space-y-4">
+      <ConfirmDialogHost />
       {/* Header */}
       <div className="flex justify-between items-center flex-wrap gap-2">
         <div>

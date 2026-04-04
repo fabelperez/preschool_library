@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import AdminHeader from "@/components/AdminHeader";
+import { useConfirm } from "@/hooks/useConfirm";
 
 interface Category {
   id: string;
@@ -27,6 +28,7 @@ interface Shelf {
 }
 
 export default function ManageShelvesPage() {
+  const { confirm, ConfirmDialogHost } = useConfirm();
   const [shelves, setShelves] = useState<Shelf[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,7 +104,12 @@ export default function ManageShelvesPage() {
   };
 
   const handleDeleteShelf = async (shelfId: string) => {
-    if (!confirm("Delete this shelf and all its sections?")) return;
+    const ok = await confirm({
+      title: "Delete shelf?",
+      description: "This will delete the shelf and all its sections.",
+      confirmText: "Delete",
+    });
+    if (!ok) return;
     
     await fetch(`/api/shelves/${shelfId}`, { method: "DELETE" });
     fetchData();
@@ -132,7 +139,12 @@ export default function ManageShelvesPage() {
   };
 
   const handleDeleteCategory = async (catId: string) => {
-    if (!confirm("Delete this category? Books in this category will become uncategorized.")) return;
+    const ok = await confirm({
+      title: "Delete category?",
+      description: "Books in this category will become uncategorized.",
+      confirmText: "Delete",
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/categories/${catId}`, { method: "DELETE" });
       if (res.ok) {
@@ -151,6 +163,7 @@ export default function ManageShelvesPage() {
 
   return (
     <div className="space-y-6">
+      <ConfirmDialogHost />
       <AdminHeader
         icon="🗄️"
         title="Manage Shelves"

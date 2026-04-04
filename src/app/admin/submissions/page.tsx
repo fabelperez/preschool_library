@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AdminHeader from "@/components/AdminHeader";
+import { useToast } from "@/components/ToastProvider";
 
 interface Submission {
   id: string;
@@ -27,7 +28,7 @@ export default function AdminSubmissionsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("pending");
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const toast = useToast();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkCategoryId, setBulkCategoryId] = useState("");
@@ -84,7 +85,6 @@ export default function AdminSubmissionsPage() {
   }, [filter]);
 
   const handleApprove = async (id: string) => {
-    setMessage(null);
     try {
       const res = await fetch(`/api/submissions/${id}`, {
         method: "PUT",
@@ -97,21 +97,20 @@ export default function AdminSubmissionsPage() {
 
       if (res.ok) {
         const data = await res.json();
-        setMessage({ type: "success", text: `"${data.submission.title}" approved and added to the library!` });
+        toast.success(`"${data.submission.title}" approved and added to the library!`);
         setApprovingId(null);
         setSelectedCategoryId("");
         fetchData();
       } else {
         const err = await res.json();
-        setMessage({ type: "error", text: err.error || "Approval failed" });
+        toast.error(err.error || "Approval failed");
       }
     } catch {
-      setMessage({ type: "error", text: "Something went wrong" });
+      toast.error("Something went wrong");
     }
   };
 
   const handleReject = async (id: string) => {
-    setMessage(null);
     try {
       const res = await fetch(`/api/submissions/${id}`, {
         method: "PUT",
@@ -124,16 +123,16 @@ export default function AdminSubmissionsPage() {
 
       if (res.ok) {
         const data = await res.json();
-        setMessage({ type: "success", text: `"${data.submission.title}" has been rejected.` });
+        toast.success(`"${data.submission.title}" has been rejected.`);
         setRejectingId(null);
         setRejectReason("");
         fetchData();
       } else {
         const err = await res.json();
-        setMessage({ type: "error", text: err.error || "Rejection failed" });
+        toast.error(err.error || "Rejection failed");
       }
     } catch {
-      setMessage({ type: "error", text: "Something went wrong" });
+      toast.error("Something went wrong");
     }
   };
 
@@ -164,7 +163,6 @@ export default function AdminSubmissionsPage() {
 
   const handleBulkAction = async (action: "approve" | "reject") => {
     if (selectedIds.size === 0) return;
-    setMessage(null);
     setBulkLoading(true);
 
     try {
@@ -181,15 +179,15 @@ export default function AdminSubmissionsPage() {
 
       if (res.ok) {
         const data = await res.json();
-        setMessage({ type: "success", text: data.message });
+        toast.success(data.message);
         clearBulkState();
         fetchData();
       } else {
         const err = await res.json();
-        setMessage({ type: "error", text: err.error || `Bulk ${action} failed` });
+        toast.error(err.error || `Bulk ${action} failed`);
       }
     } catch {
-      setMessage({ type: "error", text: "Something went wrong" });
+      toast.error("Something went wrong");
     } finally {
       setBulkLoading(false);
     }
@@ -215,18 +213,6 @@ export default function AdminSubmissionsPage() {
           </button>
         ))}
       </div>
-
-      {message && (
-        <div
-          className={`p-4 rounded-lg ${
-            message.type === "success"
-              ? "bg-green-50 border border-green-200 text-green-700"
-              : "bg-red-50 border border-red-200 text-red-700"
-          }`}
-        >
-          {message.text}
-        </div>
-      )}
 
       {loading ? (
         <div className="text-center py-12 text-gray-500">Loading submissions...</div>

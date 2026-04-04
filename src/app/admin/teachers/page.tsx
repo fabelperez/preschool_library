@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AdminHeader from "@/components/AdminHeader";
+import { useToast } from "@/components/ToastProvider";
 
 interface CheckoutItem {
   id: string;
@@ -55,7 +56,7 @@ export default function ManageTeachersPage() {
   const [expandedTab, setExpandedTab] = useState<"active" | "history">("active");
   const [historyCache, setHistoryCache] = useState<Record<string, HistoryItem[]>>({});
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const toast = useToast();
 
   const fetchTeachers = () => {
     fetch("/api/teachers")
@@ -69,7 +70,6 @@ export default function ManageTeachersPage() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    setMessage(null);
 
     const res = await fetch("/api/teachers", {
       method: "POST",
@@ -78,14 +78,14 @@ export default function ManageTeachersPage() {
     });
 
     if (res.ok) {
-      setMessage({ type: "success", text: `${newName} added!` });
+      toast.success(`${newName} added!`);
       setNewName("");
       setNewEmail("");
       setShowAddForm(false);
       fetchTeachers();
     } else {
       const err = await res.json();
-      setMessage({ type: "error", text: err.error || "Failed to add teacher" });
+      toast.error(err.error || "Failed to add teacher");
     }
   };
 
@@ -113,14 +113,6 @@ export default function ManageTeachersPage() {
           </button>
         }
       />
-
-      {message && (
-        <div className={`p-4 rounded-lg ${
-          message.type === "success" ? "bg-green-50 border border-green-200 text-green-700" : "bg-red-50 border border-red-200 text-red-700"
-        }`}>
-          {message.text}
-        </div>
-      )}
 
       {showAddForm && (
         <form onSubmit={handleAdd} className="bg-gray-50 border rounded-xl p-5 space-y-4">

@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import AdminHeader from "@/components/AdminHeader";
 import { groupByTheme } from "@/lib/groupByTheme";
+import { useConfirm } from "@/hooks/useConfirm";
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -220,6 +221,7 @@ function ResourceShelfPanel({
   onRefresh: () => void;
   onMessage: (m: { type: "success" | "error"; text: string }) => void;
 }) {
+  const { confirm: confirmDialog, ConfirmDialogHost } = useConfirm();
   const [newBinLabel, setNewBinLabel] = useState("");
   const [newThemeName, setNewThemeName] = useState("");
   const [addingBin, setAddingBin] = useState(false);
@@ -256,7 +258,12 @@ function ResourceShelfPanel({
   };
 
   const handleDeleteBin = async (binId: string) => {
-    if (!confirm("Delete this bin and all its contents?")) return;
+    const ok = await confirmDialog({
+      title: "Delete bin?",
+      description: "This will delete the bin and all its contents.",
+      confirmText: "Delete",
+    });
+    if (!ok) return;
     await fetch(`/api/bins/${binId}`, { method: "DELETE" });
     onMessage({ type: "success", text: "Bin deleted" });
     onRefresh();
@@ -336,6 +343,7 @@ function ResourceShelfPanel({
 
   return (
     <>
+      <ConfirmDialogHost />
       {/* Theme Management */}
       <section className="bg-amber-50 border border-amber-200 rounded-xl p-5 space-y-3">
         <h2 className="font-semibold text-lg text-amber-900">🎨 Themes</h2>
@@ -553,6 +561,7 @@ function BookShelfPanel({
   onRefresh: () => void;
   onMessage: (m: { type: "success" | "error"; text: string }) => void;
 }) {
+  const { confirm: confirmDialog, ConfirmDialogHost: ConfirmHost } = useConfirm();
   const [newSectionCatId, setNewSectionCatId] = useState("");
   const [newSectionLabel, setNewSectionLabel] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -585,7 +594,12 @@ function BookShelfPanel({
   };
 
   const handleRemoveSection = async (index: number) => {
-    if (!confirm("Remove this section from the shelf?")) return;
+    const ok = await confirmDialog({
+      title: "Remove section?",
+      description: "This will remove the section from the shelf.",
+      confirmText: "Remove",
+    });
+    if (!ok) return;
     const updatedSections = sections
       .filter((_, i) => i !== index)
       .map((s, i) => ({ categoryId: s.category.id, label: s.label, position: i + 1 }));
@@ -646,6 +660,7 @@ function BookShelfPanel({
 
   return (
     <section className="bg-indigo-50 border border-indigo-200 rounded-xl p-5 space-y-4">
+      <ConfirmHost />
       <h2 className="font-semibold text-lg text-indigo-900">📚 Sections</h2>
 
       {sections.length === 0 && <p className="text-sm text-gray-500">No sections yet. Add one below.</p>}
