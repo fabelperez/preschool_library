@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import BookCard from "@/components/BookCard";
+import ShelfItemPreview from "@/components/ShelfItemPreview";
 import { useRole } from "@/components/RoleProvider";
+import { useToast } from "@/components/ToastProvider";
 
 interface Book {
   id: string;
@@ -62,10 +64,18 @@ interface Shelf {
 export default function ShelfDetailPage() {
   const params = useParams();
   const { teacherId, teacherName } = useRole();
+  const toast = useToast();
   const [shelf, setShelf] = useState<Shelf | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkoutLoadingId, setCheckoutLoadingId] = useState<string | null>(null);
-  const [checkoutMessage, setCheckoutMessage] = useState<{ type: "success" | "error" | "warning"; text: string } | null>(null);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (key: string) =>
+    setExpandedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) { next.delete(key); } else { next.add(key); }
+      return next;
+    });
 
   const fetchShelf = useCallback(() => {
     fetch(`/api/shelves/${params.id}`)
@@ -79,12 +89,11 @@ export default function ShelfDetailPage() {
 
   const handleBookCheckout = async (bookId: string, bookTitle: string) => {
     if (!teacherId) {
-      setCheckoutMessage({ type: "warning", text: "Please select your identity on the home page before checking out." });
+      toast.warning("Please select your identity on the home page before checking out.");
       return;
     }
 
     setCheckoutLoadingId(bookId);
-    setCheckoutMessage(null);
 
     try {
       const res = await fetch("/api/checkouts", {
@@ -94,7 +103,7 @@ export default function ShelfDetailPage() {
       });
 
       if (res.ok) {
-        setCheckoutMessage({ type: "success", text: `"${bookTitle}" checked out to ${teacherName}!` });
+        toast.success(`"${bookTitle}" checked out to ${teacherName}!`);
         // Optimistic update: immediately reflect the new checkout in the UI
         setShelf((prev) => {
           if (!prev) return prev;
@@ -117,13 +126,14 @@ export default function ShelfDetailPage() {
         fetchShelf();
       } else {
         const err = await res.json();
-        setCheckoutMessage({
-          type: res.status === 403 ? "warning" : "error",
-          text: err.error || "Checkout failed",
-        });
+        if (res.status === 403) {
+          toast.warning(err.error || "Checkout failed");
+        } else {
+          toast.error(err.error || "Checkout failed");
+        }
       }
     } catch {
-      setCheckoutMessage({ type: "error", text: "Something went wrong" });
+      toast.error("Something went wrong");
     } finally {
       setCheckoutLoadingId(null);
     }
@@ -131,12 +141,11 @@ export default function ShelfDetailPage() {
 
   const handleThemeCheckout = async (resourceCategoryId: string, themeName: string) => {
     if (!teacherId) {
-      setCheckoutMessage({ type: "warning", text: "Please select your identity on the home page before checking out." });
+      toast.warning("Please select your identity on the home page before checking out.");
       return;
     }
 
     setCheckoutLoadingId(`theme-${resourceCategoryId}`);
-    setCheckoutMessage(null);
 
     try {
       const res = await fetch("/api/checkouts", {
@@ -146,17 +155,18 @@ export default function ShelfDetailPage() {
       });
 
       if (res.ok) {
-        setCheckoutMessage({ type: "success", text: `Theme "${themeName}" checked out to ${teacherName}!` });
+        toast.success(`Theme "${themeName}" checked out to ${teacherName}!`);
         fetchShelf();
       } else {
         const err = await res.json();
-        setCheckoutMessage({
-          type: res.status === 403 ? "warning" : "error",
-          text: err.error || "Theme checkout failed",
-        });
+        if (res.status === 403) {
+          toast.warning(err.error || "Theme checkout failed");
+        } else {
+          toast.error(err.error || "Theme checkout failed");
+        }
       }
     } catch {
-      setCheckoutMessage({ type: "error", text: "Something went wrong" });
+      toast.error("Something went wrong");
     } finally {
       setCheckoutLoadingId(null);
     }
@@ -172,22 +182,6 @@ export default function ShelfDetailPage() {
       <Link href="/library" className="text-indigo-600 hover:underline text-sm">← Back to library</Link>
 
       <h1 className="text-2xl font-bold text-gray-900">🗄️ {shelf.name}</h1>
-
-      {/* Checkout feedback */}
-      {checkoutMessage && (
-        <div
-          className={`p-3 rounded-lg text-sm font-medium ${
-            checkoutMessage.type === "success"
-              ? "bg-green-100 text-green-800"
-              : checkoutMessage.type === "warning"
-              ? "bg-amber-100 text-amber-800"
-              : "bg-red-100 text-red-800"
-          }`}
-        >
-          {checkoutMessage.text}
-          <button onClick={() => setCheckoutMessage(null)} className="ml-2 underline text-xs">dismiss</button>
-        </div>
-      )}
 
       {/* ---- General book sections ---- */}
       {shelf.sections.length > 0 && (
@@ -337,44 +331,104 @@ export default function ShelfDetailPage() {
                         </div>
 
                         <div className="grid gap-2">
-                          {resources.map((r) => (
-                            <div key={`r-${r.id}`} className="flex items-center justify-between p-3 bg-white border rounded-lg">
-                              <div className="min-w-0">
-                                <p className="font-medium text-gray-900 text-sm truncate">{r.name}</p>
-                                {r.description && <p className="text-xs text-gray-500 truncate">{r.description}</p>}
-                              </div>
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                r.available > 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                              }`}>
-                                {r.available}/{r.quantity}
-                              </span>
-                            </div>
-                          ))}
-                          {books.map((b) => (
-                            <Link key={`b-${b.id}`} href={`/books/${b.id}`} className="flex items-center justify-between p-3 bg-white border rounded-lg hover:shadow-sm transition-shadow">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <div className="w-8 h-10 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
-                                  {b.coverImageUrl ? (
-                                    <img src={b.coverImageUrl} alt={b.title} className="w-full h-full object-cover" />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-sm">📕</div>
-                                  )}
+                          {resources.map((r) => {
+                            const rKey = `r-${r.id}`;
+                            const rExpanded = expandedItems.has(rKey);
+                            return (
+                              <div key={rKey} className="bg-white border rounded-lg overflow-hidden">
+                                <div className="flex items-center justify-between p-3">
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-gray-900 text-sm truncate">{r.name}</p>
+                                    {r.description && <p className="text-xs text-gray-500 truncate">{r.description}</p>}
+                                  </div>
+                                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                      r.available > 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                                    }`}>
+                                      {r.available}/{r.quantity}
+                                    </span>
+                                    <button
+                                      onClick={() => toggleExpand(rKey)}
+                                      aria-label={rExpanded ? "Collapse preview" : "Expand preview"}
+                                      className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                    >
+                                      <svg
+                                        className={`w-4 h-4 transition-transform duration-200 ${rExpanded ? "rotate-180" : ""}`}
+                                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                                      >
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                      </svg>
+                                    </button>
+                                  </div>
                                 </div>
-                                <div className="min-w-0">
-                                  <p className="font-medium text-gray-900 text-sm truncate">{b.title}</p>
-                                  <p className="text-xs text-gray-500">{b.author}</p>
+                                <div className={`overflow-hidden transition-all duration-200 ${rExpanded ? "max-h-40 opacity-100" : "max-h-0 opacity-0"}`}>
+                                  <ShelfItemPreview
+                                    type="resource"
+                                    name={r.name}
+                                    description={r.description}
+                                    availableCopies={r.available}
+                                    totalCopies={r.quantity}
+                                    categoryName={r.resourceCategory?.name}
+                                  />
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                                <span className="px-2 py-0.5 text-xs bg-indigo-100 text-indigo-700 rounded-full">📕 Book</span>
-                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                  b.available > 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                                }`}>
-                                  {b.available}/{b.totalCopies}
-                                </span>
+                            );
+                          })}
+                          {books.map((b) => {
+                            const bKey = `b-${b.id}`;
+                            const bExpanded = expandedItems.has(bKey);
+                            return (
+                              <div key={bKey} className="bg-white border rounded-lg overflow-hidden hover:shadow-sm transition-shadow">
+                                <Link href={`/books/${b.id}`} className="flex items-center justify-between p-3">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <div className="w-8 h-10 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
+                                      {b.coverImageUrl ? (
+                                        <img src={b.coverImageUrl} alt={b.title} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-sm">📕</div>
+                                      )}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-gray-900 text-sm truncate">{b.title}</p>
+                                      <p className="text-xs text-gray-500">{b.author}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                                    <span className="px-2 py-0.5 text-xs bg-indigo-100 text-indigo-700 rounded-full">📕 Book</span>
+                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                      b.available > 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                                    }`}>
+                                      {b.available}/{b.totalCopies}
+                                    </span>
+                                  </div>
+                                </Link>
+                                <button
+                                  onClick={() => toggleExpand(bKey)}
+                                  aria-label={bExpanded ? "Collapse preview" : "Expand preview"}
+                                  className="flex items-center gap-1 w-full px-3 pb-1.5 text-xs text-gray-400 hover:text-indigo-600 transition-colors"
+                                >
+                                  <svg
+                                    className={`w-3 h-3 transition-transform duration-200 ${bExpanded ? "rotate-180" : ""}`}
+                                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                                  >
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                  {bExpanded ? "Hide" : "Preview"}
+                                </button>
+                                <div className={`overflow-hidden transition-all duration-200 ${bExpanded ? "max-h-40 opacity-100" : "max-h-0 opacity-0"}`}>
+                                  <ShelfItemPreview
+                                    type="book"
+                                    bookId={b.id}
+                                    title={b.title}
+                                    author={b.author}
+                                    availableCopies={b.available}
+                                    totalCopies={b.totalCopies}
+                                    categoryName={b.category?.name || b.resourceCategory?.name}
+                                  />
+                                </div>
                               </div>
-                            </Link>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     );
