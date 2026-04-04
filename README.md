@@ -116,3 +116,23 @@ Open [http://localhost:3000](http://localhost:3000) to view the app.
   lsof -i :3001
   kill -9 <PID>
   ```
+
+## QA Test Checklist
+
+### Lost/Damaged Tracking & Resource Status (Apr 2026)
+
+**As Librarian (admin)**
+- [ ] `/admin/resources` → Resources tab → all resources listed with status badges (Available / Damaged / Lost)
+- [ ] Mark a resource as **Lost** → confirmation modal appears → status updates to "Lost" badge
+- [ ] Mark a resource as **Damaged** → optional note prompt → status updates to "Damaged" badge
+- [ ] **Restore** a lost/damaged resource → status returns to "Available"
+- [ ] Filter bar (All / Available / Damaged / Lost) correctly filters the resource list
+- [ ] `/books/[id]` → use +/− steppers to mark individual copies as lost or damaged
+- [ ] Lost + damaged copy counts correctly reduce available count shown on the book card
+
+**As Teacher (checkout)**
+- [ ] Try checking out a **lost** resource → blocked with a clear error message
+- [ ] Try checking out a **damaged** resource → blocked with a clear error message
+- [ ] Try checking out a book where all copies are lost/damaged → checkout blocked
+- [ ] `/browse` → books with lost/damaged copies show correct count badges and accurate available count
+- [ ] Books added within the last 30 days show a **"New"** badge on their card
