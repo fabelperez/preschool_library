@@ -18,8 +18,7 @@ export default function CoverPage() {
   const [loadingTeachers, setLoadingTeachers] = useState(false);
 
   const handleLibrarian = () => {
-    setRole("librarian");
-    router.push("/admin");
+    router.push("/admin/login");
   };
 
   const handleTeacherStep = () => {
