@@ -40,6 +40,61 @@ const FIXTURE_PRESETS = [
   { label: "Rug", emoji: "🟫", type: "rug", bgColor: "bg-rose-100/50", borderStyle: "dashed", layoutWidth: 25, layoutHeight: 18 },
 ];
 
+// ─── Layout geometry helpers ────────────────────────────────────────────────
+
+/** Set to true to draw AABB debug outlines around each item while dragging. */
+const DEBUG_BBOX = false;
+
+/**
+ * Axis-aligned bounding box (AABB) of a rotated rectangle.
+ * The unrotated top-left is (x, y) with dimensions w × h; rotation in degrees.
+ * For rotation=0 the AABB equals the original rect (no-op path).
+ */
+function rotatedAABB(x: number, y: number, w: number, h: number, angleDeg: number) {
+  if (!angleDeg) return { x, y, width: w, height: h };
+  const rad = (angleDeg * Math.PI) / 180;
+  const cosA = Math.abs(Math.cos(rad));
+  const sinA = Math.abs(Math.sin(rad));
+  const aabbW = w * cosA + h * sinA;
+  const aabbH = w * sinA + h * cosA;
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  return { x: cx - aabbW / 2, y: cy - aabbH / 2, width: aabbW, height: aabbH };
+}
+
+/**
+ * After a drag, recover the unrotated item top-left from the AABB top-left.
+ * The item center always coincides with the AABB center.
+ */
+function aabbTopLeftToItemTopLeft(
+  aabbX: number, aabbY: number,
+  aabbW: number, aabbH: number,
+  itemW: number, itemH: number,
+) {
+  return { x: aabbX + (aabbW - itemW) / 2, y: aabbY + (aabbH - itemH) / 2 };
+}
+
+/**
+ * Back-calculate original item dimensions from a resized AABB + current angle.
+ * Falls back to the pre-resize dimensions near ≈45°/135° where the system is
+ * degenerate (cos 2θ ≈ 0).
+ */
+function aabbToItemDims(
+  newAabbW: number, newAabbH: number, angleDeg: number,
+  fallbackW: number, fallbackH: number,
+): { w: number; h: number } {
+  if (!angleDeg) return { w: newAabbW, h: newAabbH };
+  const rad = (angleDeg * Math.PI) / 180;
+  const cosA = Math.abs(Math.cos(rad));
+  const sinA = Math.abs(Math.sin(rad));
+  const det = cosA * cosA - sinA * sinA; // = cos(2θ)
+  if (Math.abs(det) < 0.05) return { w: fallbackW, h: fallbackH };
+  return {
+    w: Math.max(20, (newAabbW * cosA - newAabbH * sinA) / det),
+    h: Math.max(15, (newAabbH * cosA - newAabbW * sinA) / det),
+  };
+}
+
 export default function ShelfLayoutEditorPage() {
   const { confirm, ConfirmDialogHost } = useConfirm();
   const [shelves, setShelves] = useState<ShelfLayout[]>([]);
@@ -332,14 +387,16 @@ export default function ShelfLayoutEditorPage() {
         {/* Draggable fixtures */}
         {fixtures.map((fixture) => {
           const { x, y, width, height } = pctToPx(fixture.layoutX, fixture.layoutY, fixture.layoutWidth, fixture.layoutHeight);
+          const rotation = fixture.layoutRotation ?? 0;
+          const aabb = rotatedAABB(x, y, width, height, rotation);
           const isSelected = selected?.kind === "fixture" && selected.id === fixture.id;
           const isRound = fixture.type === "rug";
 
           return (
             <Rnd
               key={fixture.id}
-              position={{ x, y }}
-              size={{ width, height }}
+              position={{ x: aabb.x, y: aabb.y }}
+              size={{ width: aabb.width, height: aabb.height }}
               bounds="parent"
               minWidth={30}
               minHeight={20}
@@ -348,22 +405,35 @@ export default function ShelfLayoutEditorPage() {
                 setSelected({ kind: "fixture", id: fixture.id });
               }}
               onDragStop={(_e, d) => {
-                const pct = pxToPct(d.x, d.y, width, height);
+                const orig = aabbTopLeftToItemTopLeft(d.x, d.y, aabb.width, aabb.height, width, height);
+                const pct = pxToPct(orig.x, orig.y, width, height);
                 updateFixture(fixture.id, { layoutX: pct.layoutX, layoutY: pct.layoutY });
               }}
               onResizeStop={(_e, _dir, ref, _delta, position) => {
-                const pct = pxToPct(position.x, position.y, ref.offsetWidth, ref.offsetHeight);
+                const { w: newW, h: newH } = aabbToItemDims(ref.offsetWidth, ref.offsetHeight, rotation, width, height);
+                const orig = aabbTopLeftToItemTopLeft(position.x, position.y, ref.offsetWidth, ref.offsetHeight, newW, newH);
+                const pct = pxToPct(orig.x, orig.y, newW, newH);
                 updateFixture(fixture.id, pct);
               }}
               className={`z-[5] ${isSelected ? "z-20" : ""}`}
             >
+              {DEBUG_BBOX && (
+                <div className="absolute inset-0 border-2 border-dashed border-blue-400 pointer-events-none opacity-50" />
+              )}
               <div
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelected({ kind: "fixture", id: fixture.id });
                 }}
-                style={{ transform: fixture.layoutRotation ? `rotate(${fixture.layoutRotation}deg)` : undefined }}
-                className={`w-full h-full flex items-center justify-center cursor-move transition-all
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  width,
+                  height,
+                  transform: `translate(-50%, -50%)${rotation ? ` rotate(${rotation}deg)` : ""}`,
+                }}
+                className={`flex items-center justify-center cursor-move transition-all
                   ${isRound ? "rounded-full" : "rounded-lg"}
                   ${fixture.bgColor}
                   border-2 ${fixture.borderStyle === "dashed" ? "border-dashed" : "border-solid"}
@@ -384,13 +454,15 @@ export default function ShelfLayoutEditorPage() {
         {/* Draggable shelves */}
         {shelves.map((shelf) => {
           const { x, y, width, height } = pctToPx(shelf.layoutX, shelf.layoutY, shelf.layoutWidth, shelf.layoutHeight);
+          const rotation = shelf.layoutRotation ?? 0;
+          const aabb = rotatedAABB(x, y, width, height, rotation);
           const isSelected = selected?.kind === "shelf" && selected.id === shelf.id;
 
           return (
             <Rnd
               key={shelf.id}
-              position={{ x, y }}
-              size={{ width, height }}
+              position={{ x: aabb.x, y: aabb.y }}
+              size={{ width: aabb.width, height: aabb.height }}
               bounds="parent"
               minWidth={40}
               minHeight={30}
@@ -399,22 +471,35 @@ export default function ShelfLayoutEditorPage() {
                 setSelected({ kind: "shelf", id: shelf.id });
               }}
               onDragStop={(_e, d) => {
-                const pct = pxToPct(d.x, d.y, width, height);
+                const orig = aabbTopLeftToItemTopLeft(d.x, d.y, aabb.width, aabb.height, width, height);
+                const pct = pxToPct(orig.x, orig.y, width, height);
                 updateShelf(shelf.id, { layoutX: pct.layoutX, layoutY: pct.layoutY });
               }}
               onResizeStop={(_e, _dir, ref, _delta, position) => {
-                const pct = pxToPct(position.x, position.y, ref.offsetWidth, ref.offsetHeight);
+                const { w: newW, h: newH } = aabbToItemDims(ref.offsetWidth, ref.offsetHeight, rotation, width, height);
+                const orig = aabbTopLeftToItemTopLeft(position.x, position.y, ref.offsetWidth, ref.offsetHeight, newW, newH);
+                const pct = pxToPct(orig.x, orig.y, newW, newH);
                 updateShelf(shelf.id, pct);
               }}
               className={`z-10 ${isSelected ? "z-20" : ""}`}
             >
+              {DEBUG_BBOX && (
+                <div className="absolute inset-0 border-2 border-dashed border-blue-400 pointer-events-none opacity-50" />
+              )}
               <div
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelected({ kind: "shelf", id: shelf.id });
                 }}
-                style={{ transform: shelf.layoutRotation ? `rotate(${shelf.layoutRotation}deg)` : undefined }}
-                className={`w-full h-full rounded-lg border-2 flex flex-col items-center justify-center cursor-move transition-colors
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  width,
+                  height,
+                  transform: `translate(-50%, -50%)${rotation ? ` rotate(${rotation}deg)` : ""}`,
+                }}
+                className={`rounded-lg border-2 flex flex-col items-center justify-center cursor-move transition-colors
                   ${isSelected
                     ? "bg-indigo-100 border-indigo-500 ring-2 ring-indigo-300 shadow-lg"
                     : "bg-amber-100 border-amber-400 hover:border-amber-500 shadow-md"
