@@ -46,7 +46,7 @@ export default function ManageShelvesPage() {
       ]);
       const shelvesData = await shelvesRes.json();
       const catsData = await catsRes.json();
-      setShelves(shelvesData);
+      setShelves([...shelvesData].sort((a: Shelf, b: Shelf) => a.name.localeCompare(b.name)));
       setCategories(catsData);
     } catch (err) {
       console.error(err);
@@ -251,47 +251,58 @@ export default function ManageShelvesPage() {
       {shelves.length === 0 ? (
         <p className="text-gray-500 text-center py-12 bg-gray-50 rounded-lg">No shelves yet. Add your first shelf above.</p>
       ) : (
-        <div className="space-y-4">
-          {shelves.map((shelf) => (
-            <div key={shelf.id} className="border-2 border-amber-200 rounded-xl p-5 bg-amber-50">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-bold text-lg text-amber-900">{shelf.name}</h3>
-                  <p className="text-sm text-amber-700">
-                    {shelf.type === "resource" ? "🧩 Teacher Resource Materials" : "📖 General Book"} ·{" "}
-                    {shelf.type === "resource"
-                      ? `${shelf.bins?.length || 0} bins`
-                      : `${shelf.sections.length} sections`}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Link href={`/admin/shelves/${shelf.id}/edit`} className="text-sm text-amber-600 hover:underline font-medium">
-                    Edit
-                  </Link>
-                  <Link href={`/shelves/${shelf.id}`} className="text-sm text-indigo-600 hover:underline">
-                    View
-                  </Link>
-                  <button
-                    onClick={() => handleDeleteShelf(shelf.id)}
-                    className="text-sm text-red-600 hover:underline"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
+        <div className="space-y-8">
+          {(["resource", "book"] as const).map((groupType) => {
+            const group = shelves.filter((s) => s.type === groupType);
+            if (group.length === 0) return null;
+            const groupLabel = groupType === "resource" ? "🧩 Resource Shelves" : "📖 General Book Shelves";
+            return (
+              <div key={groupType}>
+                <h2 className="text-base font-semibold text-gray-700 mb-3 border-b pb-1">{groupLabel}</h2>
+                <div className="space-y-4">
+                  {group.map((shelf) => (
+                    <div key={shelf.id} className="border-2 border-amber-200 rounded-xl p-5 bg-amber-50">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-bold text-lg text-amber-900">{shelf.name}</h3>
+                          <p className="text-sm text-amber-700">
+                            {shelf.type === "resource"
+                              ? `${shelf.bins?.length || 0} bins`
+                              : `${shelf.sections.length} sections`}
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Link href={`/admin/shelves/${shelf.id}/edit`} className="text-sm text-amber-600 hover:underline font-medium">
+                            Edit
+                          </Link>
+                          <Link href={`/shelves/${shelf.id}`} className="text-sm text-indigo-600 hover:underline">
+                            View
+                          </Link>
+                          <button
+                            onClick={() => handleDeleteShelf(shelf.id)}
+                            className="text-sm text-red-600 hover:underline"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
 
-              {shelf.sections.length > 0 && (
-                <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {shelf.sections.map((section) => (
-                    <div key={section.id} className="bg-white rounded-lg p-2 text-sm text-center border border-amber-200">
-                      <div className="font-medium">{section.label || section.category.name}</div>
-                      <div className="text-xs text-gray-500">{section.category.name}</div>
+                      {shelf.sections.length > 0 && (
+                        <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {shelf.sections.map((section) => (
+                            <div key={section.id} className="bg-white rounded-lg p-2 text-sm text-center border border-amber-200">
+                              <div className="font-medium">{section.label || section.category.name}</div>
+                              <div className="text-xs text-gray-500">{section.category.name}</div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       )}
 
