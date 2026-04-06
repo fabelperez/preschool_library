@@ -23,6 +23,7 @@ model Teacher {
   checkouts          Checkout[]
   bookSubmissions    BookSubmission[]
   resourceCheckouts  ResourceCheckout[]
+  libraryRequests    LibraryRequest[]
 }
 
 model Category {
@@ -82,11 +83,14 @@ model Book {
   resource           Resource?         @relation(fields: [resourceId], references: [id], onDelete: SetNull)
   resourceCategoryId String?
   resourceCategory   ResourceCategory? @relation(fields: [resourceCategoryId], references: [id], onDelete: SetNull)
-  status             String            @default("available") // "available" | "lost" | "damaged"
-  statusNote         String?
-  statusUpdatedAt    DateTime?
-  lostCopies         Int               @default(0)
-  damagedCopies      Int               @default(0)
+  status               String            @default("available") // "available" | "lost" | "damaged"
+  statusNote           String?
+  statusUpdatedAt      DateTime?
+  lostCopies           Int               @default(0)
+  damagedCopies        Int               @default(0)
+  description          String?
+  descriptionSource    String?           // "openlibrary" | "manual"
+  descriptionUpdatedAt DateTime?
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   checkouts          Checkout[]
@@ -180,6 +184,21 @@ model BookSubmission {
   teacher       Teacher  @relation(fields: [teacherId], references: [id])
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  @@index([status])
+  @@index([teacherId])
+}
+
+model LibraryRequest {
+  id        String   @id @default(cuid())
+  query     String
+  keywords  String   // JSON array of extracted tokens
+  notes     String?
+  status    String   @default("pending") // "pending" | "fulfilled" | "declined"
+  teacherId String
+  teacher   Teacher  @relation(fields: [teacherId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([teacherId])

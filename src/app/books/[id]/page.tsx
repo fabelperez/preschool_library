@@ -24,6 +24,8 @@ interface Book {
   lostCopies: number;
   damagedCopies: number;
   statusNote: string | null;
+  description: string | null;
+  descriptionSource: string | null;
   createdAt: string;
   category: { id: string; name: string } | null;
   qualifier: { id: string; name: string } | null;
@@ -49,6 +51,32 @@ export default function BookDetailPage() {
   const [statusNote, setStatusNote] = useState("");
   const [pendingLost, setPendingLost] = useState<number | null>(null);
   const [pendingDamaged, setPendingDamaged] = useState<number | null>(null);
+  const [fetchingDesc, setFetchingDesc] = useState(false);
+
+  const handleFetchDescription = async () => {
+    if (!book?.isbn) return;
+    setFetchingDesc(true);
+    try {
+      const res = await fetch("/api/book-description", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isbn: book.isbn, bookId: book.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to fetch description");
+      } else if (data.description) {
+        setBook((b) => b ? { ...b, description: data.description, descriptionSource: "openlibrary" } : b);
+        toast.success("Description fetched and saved!");
+      } else {
+        toast.error("No description found on Open Library for this ISBN");
+      }
+    } catch {
+      toast.error("Something went wrong");
+    } finally {
+      setFetchingDesc(false);
+    }
+  };
 
   useEffect(() => {
     fetch(`/api/books/${params.id}`)
@@ -168,6 +196,15 @@ export default function BookDetailPage() {
                   Check Out
                 </Link>
               )}
+              {book.isbn && (
+                <button
+                  onClick={handleFetchDescription}
+                  disabled={fetchingDesc}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm disabled:opacity-50 transition-colors"
+                >
+                  {fetchingDesc ? "Fetching…" : book.description ? "🔄 Refresh Description" : "🔍 Fetch Description"}
+                </button>
+              )}
               <button
                 onClick={handleDelete}
                 className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-sm"
@@ -175,6 +212,16 @@ export default function BookDetailPage() {
                 Delete
               </button>
             </div>
+
+            {book.description && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">Description</p>
+                <p className="text-sm text-gray-600 leading-relaxed">{book.description}</p>
+                {book.descriptionSource && (
+                  <p className="text-xs text-gray-400 mt-1">Source: {book.descriptionSource}</p>
+                )}
+              </div>
+            )}
 
             {/* Status management */}
             <div className="mt-4 pt-4 border-t border-gray-100">

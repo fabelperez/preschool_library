@@ -47,17 +47,9 @@ export async function GET(request: NextRequest) {
   const booksWithAvailability = books.map((book) => {
     const bookThemeCatId = book.resourceCategoryId || book.resource?.resourceCategoryId || null;
     const themeCheckedOut = bookThemeCatId ? checkedOutThemes.has(bookThemeCatId) : false;
-    let availableCopies: number;
-    if (themeCheckedOut) {
-      availableCopies = 0;
-    } else if (book.resource) {
-      availableCopies = Math.max(0, book.resource.quantity - book.resource.checkouts.length);
-    } else {
-      availableCopies = Math.max(
-        0,
-        book.totalCopies - book.checkouts.length - book.lostCopies - book.damagedCopies
-      );
-    }
+    const availableCopies = themeCheckedOut
+      ? 0
+      : Math.max(0, book.totalCopies - book.checkouts.length - book.lostCopies - book.damagedCopies);
     return {
       ...book,
       availableCopies,

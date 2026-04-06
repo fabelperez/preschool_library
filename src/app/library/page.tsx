@@ -6,6 +6,15 @@ import UnifiedSearch from "@/components/UnifiedSearch";
 import type { BookResult } from "@/components/UnifiedSearch";
 import LibraryRoomView from "@/components/LibraryRoomView";
 
+interface NewArrival {
+  id: string;
+  title: string;
+  author: string;
+  coverImageUrl: string | null;
+  createdAt: string;
+  category: { name: string } | null;
+}
+
 interface ShelfSection {
   id: string;
   label: string | null;
@@ -32,13 +41,19 @@ interface Shelf {
 
 export default function Home() {
   const [shelves, setShelves] = useState<Shelf[]>([]);
+  const [newArrivals, setNewArrivals] = useState<NewArrival[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedBook, setSelectedBook] = useState<BookResult | null>(null);
 
   useEffect(() => {
-    fetch("/api/shelves")
-      .then((r) => r.json())
-      .then(setShelves)
+    Promise.all([
+      fetch("/api/shelves").then((r) => r.json()),
+      fetch("/api/new-arrivals").then((r) => r.json()),
+    ])
+      .then(([shelvesData, arrivalsData]) => {
+        setShelves(shelvesData);
+        setNewArrivals(arrivalsData);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
@@ -80,6 +95,54 @@ export default function Home() {
           <LibraryRoomView shelves={shelves} />
         )}
       </div>
+
+      {newArrivals.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-end justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-800">🆕 New Arrivals</h2>
+              <p className="text-sm text-gray-500 mt-0.5">Books added in the last 30 days</p>
+            </div>
+            <Link href="/browse" className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+              View all →
+            </Link>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {newArrivals.map((book) => (
+              <Link key={book.id} href={`/books/${book.id}`} className="block">
+                <div className="border rounded-lg p-4 hover:shadow-md transition-shadow bg-white">
+                  <div className="flex gap-4">
+                    <div className="relative w-16 h-20 flex-shrink-0 bg-gray-100 rounded overflow-hidden">
+                      {book.coverImageUrl ? (
+                        <img src={book.coverImageUrl} alt={book.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-2xl">📕</div>
+                      )}
+                      <span className="absolute top-0 left-0 bg-yellow-400 text-yellow-900 text-[9px] font-bold px-1 leading-4 rounded-br">
+                        NEW
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-gray-900 truncate">{book.title}</h3>
+                      <p className="text-sm text-gray-600">{book.author}</p>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {book.category && (
+                          <span className="inline-block px-2 py-0.5 text-xs bg-indigo-100 text-indigo-700 rounded-full">
+                            {book.category.name}
+                          </span>
+                        )}
+                        <span className="inline-block px-2 py-0.5 text-xs bg-gray-100 text-gray-500 rounded-full">
+                          Added {new Date(book.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Link href="/books" className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-center hover:bg-blue-100 transition-colors">

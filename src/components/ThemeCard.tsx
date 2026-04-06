@@ -97,6 +97,36 @@ export default function ThemeCard({
     }
   }
 
+  async function handleBulkCheckoutBooks() {
+    if (!selectedTeacherId) return;
+    setActionLoading(true);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/resource-categories/${id}/bulk-checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teacherId: selectedTeacherId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage({ type: "error", text: data.error || "Bulk checkout failed" });
+      } else {
+        const teacher = teachers.find((t) => t.id === selectedTeacherId);
+        const skippedNote = data.skipped > 0 ? ` (${data.skipped} already out)` : "";
+        setMessage({
+          type: "success",
+          text: `${data.checkedOut} book${data.checkedOut !== 1 ? "s" : ""} checked out to ${teacher?.name}${skippedNote}!`,
+        });
+        setSelectedTeacherId("");
+        onCheckoutChange();
+      }
+    } catch {
+      setMessage({ type: "error", text: "Something went wrong" });
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   async function handleReturn() {
     if (!localCheckout) return;
     setActionLoading(true);
@@ -196,6 +226,15 @@ export default function ThemeCard({
             >
               {actionLoading ? "Checking out…" : "Check Out"}
             </button>
+            {bookCount > 0 && (
+              <button
+                onClick={handleBulkCheckoutBooks}
+                disabled={!selectedTeacherId || actionLoading}
+                className="px-3 py-1.5 text-sm font-medium bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 disabled:opacity-40 transition-colors"
+              >
+                📕 All {bookCount} books
+              </button>
+            )}
           </>
         )}
 

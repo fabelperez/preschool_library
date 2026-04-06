@@ -135,7 +135,9 @@ export async function GET(request: NextRequest) {
     const isTeacherResource = !!book.resource;
     const bookThemeCatId = book.resourceCategoryId || book.resource?.resourceCategoryId || null;
     const themeCheckedOut = bookThemeCatId ? checkedOutThemes.has(bookThemeCatId) : false;
-    const availableCopies = themeCheckedOut ? 0 : Math.max(0, book.totalCopies - book.checkouts.length - (book.lostCopies ?? 0) - (book.damagedCopies ?? 0));
+    const availableCopies = themeCheckedOut
+      ? 0
+      : Math.max(0, book.totalCopies - book.checkouts.length - (book.lostCopies ?? 0) - (book.damagedCopies ?? 0));
     const themeName = book.resource?.resourceCategory?.name
       || book.resourceCategory?.name
       || (book.bin?.theme && book.bin.theme !== "General" ? book.bin.theme : null)

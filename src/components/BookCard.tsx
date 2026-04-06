@@ -15,6 +15,7 @@ interface BookCardProps {
   lostCopies?: number;
   damagedCopies?: number;
   createdAt?: string | null;
+  description?: string | null;
 }
 
 export default function BookCard({
@@ -30,6 +31,7 @@ export default function BookCard({
   lostCopies = 0,
   damagedCopies = 0,
   createdAt,
+  description,
 }: BookCardProps) {
   const isAvailable = availableCopies > 0;
   const isNew = createdAt
@@ -98,6 +100,10 @@ export default function BookCard({
                   </p>
                 ))}
               </div>
+            )}
+
+            {description && (
+              <p className="mt-2 text-xs text-gray-500 line-clamp-2">{description}</p>
             )}
           </div>
         </div>

@@ -32,16 +32,10 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
   const bookThemeCatId = book.resourceCategoryId || book.resource?.resourceCategoryId || null;
   const themeCheckedOut = bookThemeCatId ? checkedOutThemes.has(bookThemeCatId) : false;
 
-  let availableCopies: number;
-  if (themeCheckedOut) {
-    availableCopies = 0;
-  } else if (book.resource) {
-    const activeResourceCheckouts = book.resource.checkouts.filter((c) => !c.returnedAt);
-    availableCopies = Math.max(0, book.resource.quantity - activeResourceCheckouts.length);
-  } else {
-    const activeCheckouts = book.checkouts.filter((c) => !c.returnedAt).length;
-    availableCopies = Math.max(0, book.totalCopies - activeCheckouts - book.lostCopies - book.damagedCopies);
-  }
+  const activeCheckouts = book.checkouts.filter((c) => !c.returnedAt).length;
+  const availableCopies = themeCheckedOut
+    ? 0
+    : Math.max(0, book.totalCopies - activeCheckouts - book.lostCopies - book.damagedCopies);
 
   return NextResponse.json({ ...book, availableCopies, themeCheckedOut });
 }

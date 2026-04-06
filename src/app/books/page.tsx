@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchBar from "@/components/SearchBar";
 import BookCard from "@/components/BookCard";
+import { useToast } from "@/components/ToastProvider";
 
 interface Book {
   id: string;
@@ -16,6 +17,7 @@ interface Book {
   availableCopies: number;
   lostCopies: number;
   damagedCopies: number;
+  description: string | null;
   createdAt: string;
   category: { id: string; name: string } | null;
   checkedOutBy: { teacherName: string; checkedOutAt: string }[];
@@ -31,12 +33,15 @@ const NEW_ARRIVAL_DAYS = 30;
 function BooksContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const toast = useToast();
   const query = searchParams.get("q") || "";
   const categoryId = searchParams.get("categoryId") || "";
   const statusFilter = searchParams.get("status") || "";
   const [books, setBooks] = useState<Book[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchingAll, setFetchingAll] = useState(false);
+  const [fetchProgress, setFetchProgress] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/categories")
@@ -57,6 +62,46 @@ function BooksContent() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [query, categoryId]);
+
+  const handleFetchMissingDescriptions = async () => {
+    const missing = books.filter((b) => b.isbn && !b.description);
+    if (missing.length === 0) {
+      toast.success("All books with ISBNs already have descriptions!");
+      return;
+    }
+    setFetchingAll(true);
+    let found = 0;
+    let notFound = 0;
+    for (let i = 0; i < missing.length; i++) {
+      const book = missing[i];
+      setFetchProgress(`${i + 1}/${missing.length}: ${book.title}`);
+      try {
+        const res = await fetch("/api/book-description", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isbn: book.isbn, bookId: book.id }),
+        });
+        const data = await res.json();
+        if (res.ok && data.description) {
+          found++;
+          setBooks((prev) =>
+            prev.map((b) => b.id === book.id ? { ...b, description: data.description } : b)
+          );
+        } else {
+          notFound++;
+        }
+      } catch {
+        notFound++;
+      }
+      // Rate-limit to 1 request/sec
+      if (i < missing.length - 1) {
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
+    setFetchingAll(false);
+    setFetchProgress(null);
+    toast.success(`Done — ${found} description${found !== 1 ? "s" : ""} fetched, ${notFound} not found`);
+  };
 
   const handleCategoryChange = (newCategoryId: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -91,12 +136,22 @@ function BooksContent() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">📖 Books</h1>
-        <Link
-          href="/books/add"
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
-        >
-          + Add Book
-        </Link>
+        <div className="flex gap-2">
+          <button
+            onClick={handleFetchMissingDescriptions}
+            disabled={fetchingAll || loading}
+            className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium disabled:opacity-50 transition-colors"
+            title="Fetch Open Library descriptions for all books that are missing one"
+          >
+            {fetchingAll ? `🔍 ${fetchProgress ?? "Fetching…"}` : "🔍 Fetch Missing Descriptions"}
+          </button>
+          <Link
+            href="/books/add"
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
+          >
+            + Add Book
+          </Link>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -161,6 +216,7 @@ function BooksContent() {
               lostCopies={book.lostCopies}
               damagedCopies={book.damagedCopies}
               createdAt={book.createdAt}
+              description={book.description}
             />
           ))}
         </div>
