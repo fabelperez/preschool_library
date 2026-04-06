@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "npx prisma generate && next build",
     "start": "next start",
+    "start:prod": "node server.js",
     "lint": "next lint",
     "db:migrate": "npx prisma migrate dev",
     "db:seed": "npx tsx prisma/seed.ts",

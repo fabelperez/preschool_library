@@ -84,6 +84,123 @@ Open [http://localhost:3000](http://localhost:3000) to view the app.
 | Quick actions | `/` | One-click access to checkout, check-in, and book submission |
 | Global search | `/` | Search bar to find books by title, author, or ISBN |
 
+## 📱 Production Setup (Laptop + Phone Scanning)
+
+This section covers running the app on a school laptop so phones on the same WiFi can scan barcodes. Mobile browsers require HTTPS for camera access, so a one-time certificate setup is needed.
+
+### Prerequisites
+
+- Node.js installed on the laptop
+- All devices (laptop + phones) on the **same WiFi network**
+- [mkcert](https://github.com/FiloSottile/mkcert/releases) for trusted local SSL certs
+
+---
+
+### Step 1 — Install mkcert
+
+Download `mkcert-v*-windows-amd64.exe` from the [releases page](https://github.com/FiloSottile/mkcert/releases), rename it to `mkcert.exe`, and place it in `C:\Windows\System32`.
+
+Then install the local certificate authority:
+
+```powershell
+mkcert -install
+```
+
+---
+
+### Step 2 — Find the laptop's IP address
+
+```powershell
+ipconfig
+```
+
+Look for **IPv4 Address** under your WiFi adapter (e.g. `192.168.1.50`). You'll use this in the next step and in `.env`.
+
+> **Tip:** Set a static IP or DHCP reservation on your router so this address never changes.
+
+---
+
+### Step 3 — Generate SSL certificates
+
+From the project root:
+
+```powershell
+mkcert -key-file certs/key.pem -cert-file certs/cert.pem 192.168.1.50 localhost 127.0.0.1
+```
+
+Replace `192.168.1.50` with the actual laptop IP from Step 2. The `certs/` folder is already in `.gitignore`.
+
+---
+
+### Step 4 — Configure environment
+
+In `.env`, set `NEXTAUTH_URL` to the HTTPS address:
+
+```
+NEXTAUTH_URL=https://192.168.1.50:3000
+```
+
+---
+
+### Step 5 — Build and start the production server
+
+```powershell
+npm run build
+npm run start:prod
+```
+
+The server will print the network URL at startup:
+
+```
+✅ Preschool Library — HTTPS server running
+
+   Local:   https://localhost:3000
+   Network: https://192.168.1.50:3000  ← use this URL on phones
+```
+
+An HTTP redirect also runs on port 3001, so `http://` links auto-upgrade to HTTPS.
+
+---
+
+### Step 6 — Set up phones (once per device)
+
+To avoid browser security warnings, install the mkcert root CA on each phone:
+
+1. Find the root CA file on the laptop:
+   ```powershell
+   mkcert -CAROOT
+   # opens the folder — find rootCA.pem
+   ```
+2. Email or AirDrop `rootCA.pem` to the phone
+3. Open the file on the phone → install as a trusted certificate
+   - **iOS:** Settings → General → VPN & Device Management → install profile
+   - **Android:** Settings → Security → Install from storage
+
+After installing, navigate to `https://192.168.1.50:3000` — the browser should show no warnings and the camera scanner will work.
+
+---
+
+### Auto-start on Windows boot (optional)
+
+Use [PM2](https://pm2.keymetrics.io/) to keep the server running and restart it automatically:
+
+```powershell
+npm install -g pm2
+pm2 start ecosystem.config.js
+pm2 save
+pm2 startup    # follow the printed command to enable Windows auto-start
+```
+
+To check status or restart:
+
+```powershell
+pm2 status
+pm2 restart preschool-library
+pm2 logs preschool-library
+```
+
+---
+
 ## Tech Stack
 
 - Next.js 14 (App Router) + TypeScript
@@ -99,6 +216,7 @@ Open [http://localhost:3000](http://localhost:3000) to view the app.
 |---------|-------------|
 | `npm run dev` | Start development server |
 | `npm run build` | Production build |
+| `npm run start:prod` | Start production HTTPS server (requires certs — see above) |
 | `npm run lint` | Run ESLint |
 | `npm run db:migrate` | Run database migrations |
 | `npm run db:seed` | Seed sample data |
