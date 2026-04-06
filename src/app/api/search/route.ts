@@ -201,3 +201,148 @@ export async function GET(request: NextRequest) {
     },
   });
 }
+
+// ── POST /api/search — natural-language smart search ─────────────────────────
+// Phase 1: tokenize + rule-based scoring.
+// Phase 2: swap scoreBook/scoreResource for AI embeddings without changing this handler.
+
+export async function POST(request: NextRequest) {
+  try {
+    const { tokenize, scoreBook, scoreResource } = await import("@/lib/search-tokens");
+
+    const body = await request.json();
+    const query: string = (body.query ?? "").trim();
+    const limit: number = Math.min(Number(body.limit ?? 10), 50);
+
+    if (!query) {
+      return NextResponse.json({ results: [] });
+    }
+
+    const tokens = tokenize(query);
+    // Fall back to the raw query as a single token if all words were stop words
+    const effectiveTokens = tokens.length > 0 ? tokens : [query.toLowerCase()];
+
+    const checkedOutThemes = await getCheckedOutThemeIds();
+
+    // Fetch all books with fields needed for scoring and availability
+    const books = await prisma.book.findMany({
+      select: {
+        id: true,
+        title: true,
+        author: true,
+        isbn: true,
+        description: true,
+        totalCopies: true,
+        lostCopies: true,
+        damagedCopies: true,
+        resourceCategoryId: true,
+        category: { select: { name: true } },
+        resource: { select: { resourceCategoryId: true, quantity: true } },
+        checkouts: { where: { returnedAt: null, type: "BOOK" }, select: { id: true } },
+      },
+    });
+
+    // Fetch all resources with fields needed for scoring and availability
+    const resources = await prisma.resource.findMany({
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        quantity: true,
+        resourceCategoryId: true,
+        resourceCategory: { select: { name: true } },
+        checkouts: { where: { returnedAt: null }, select: { id: true } },
+      },
+    });
+
+    type ScoredResult = {
+      id: string;
+      title: string;
+      author?: string;
+      isbn?: string | null;
+      description?: string | null;
+      availableCount?: number;
+      totalCount?: number;
+      matchScore: number;
+      matchReasons?: string[];
+    };
+
+    const scored: ScoredResult[] = [];
+
+    for (const book of books) {
+      const hint = scoreBook(effectiveTokens, {
+        title: book.title,
+        author: book.author,
+        description: book.description,
+        category: book.category,
+        themeName:
+          book.resource?.resourceCategoryId
+            ? null // resolved below if needed; theme name not fetched here
+            : null,
+      });
+      if (hint.score === 0) continue;
+
+      const bookThemeCatId =
+        book.resourceCategoryId ?? book.resource?.resourceCategoryId ?? null;
+      const themeCheckedOut = bookThemeCatId
+        ? checkedOutThemes.has(bookThemeCatId)
+        : false;
+
+      const totalCount = book.totalCopies;
+      const availableCount = themeCheckedOut
+        ? 0
+        : Math.max(
+            0,
+            totalCount - book.checkouts.length - book.lostCopies - book.damagedCopies
+          );
+
+      scored.push({
+        id: book.id,
+        title: book.title,
+        author: book.author,
+        isbn: book.isbn,
+        description: book.description
+          ? book.description.slice(0, 200) + (book.description.length > 200 ? "…" : "")
+          : null,
+        availableCount,
+        totalCount,
+        matchScore: hint.score,
+        matchReasons: hint.matchedFields,
+      });
+    }
+
+    for (const resource of resources) {
+      const hint = scoreResource(effectiveTokens, {
+        name: resource.name,
+        description: resource.description,
+        categoryName: resource.resourceCategory?.name,
+      });
+      if (hint.score === 0) continue;
+
+      const themeCheckedOut = checkedOutThemes.has(resource.resourceCategoryId);
+      const availableCount = themeCheckedOut
+        ? 0
+        : Math.max(0, resource.quantity - resource.checkouts.length);
+
+      scored.push({
+        id: resource.id,
+        title: resource.name,
+        description: resource.description
+          ? resource.description.slice(0, 200) +
+            (resource.description.length > 200 ? "…" : "")
+          : null,
+        availableCount,
+        totalCount: resource.quantity,
+        matchScore: hint.score,
+        matchReasons: hint.matchedFields,
+      });
+    }
+
+    scored.sort((a, b) => b.matchScore - a.matchScore);
+
+    return NextResponse.json({ results: scored.slice(0, limit) });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Search failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
