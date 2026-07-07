@@ -119,6 +119,8 @@ function BrowseContent() {
   const [loading, setLoading] = useState(true);
   const [hasSearched, setHasSearched] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const [smartResults, setSmartResults] = useState<SmartResult[] | null>(null);
+  const [smartLoading, setSmartLoading] = useState(false);
 
   /* --- fetch from /api/search --- */
   const fetchResults = useCallback(
@@ -221,8 +223,29 @@ function BrowseContent() {
     setQuery("");
     setCategoryId("");
     setTab("all");
+    setSmartResults(null);
     fetchResults("", "");
     router.replace("/browse", { scroll: false });
+  }
+
+  /* --- smart search submit --- */
+  async function handleSmartSearch(e: React.FormEvent) {
+    e.preventDefault();
+    if (!query.trim()) return;
+    setSmartLoading(true);
+    try {
+      const res = await fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: query.trim(), limit: 10 }),
+      });
+      const data = await res.json();
+      setSmartResults(data.results ?? []);
+    } catch {
+      setSmartResults([]);
+    } finally {
+      setSmartLoading(false);
+    }
   }
 
   const hasFilters = query.trim() || categoryId || tab !== "all";
@@ -240,30 +263,40 @@ function BrowseContent() {
       </div>
 
       {/* ---- search bar ---- */}
-      <div className="max-w-2xl mx-auto">
-        <div className="relative">
-          <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400 text-xl">
-            🔍
-          </span>
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by title, author, ISBN, or theme…"
-            className="w-full pl-12 pr-4 py-3.5 rounded-2xl border-2 border-indigo-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-lg bg-white shadow-sm transition-all"
-          />
-          {query && (
-            <button
-              onClick={() => setQuery("")}
-              className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-gray-600"
-            >
-              ✕
-            </button>
-          )}
+      <form className="max-w-2xl mx-auto" onSubmit={handleSmartSearch}>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400 text-xl">
+              🔍
+            </span>
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setSmartResults(null); }}
+              placeholder="Describe what you're looking for…"
+              className="w-full pl-12 pr-10 py-3.5 rounded-2xl border-2 border-indigo-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-lg bg-white shadow-sm transition-all"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => { setQuery(""); setSmartResults(null); }}
+                className="absolute inset-y-0 right-0 flex items-center pr-4 text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          <button
+            type="submit"
+            className="px-5 py-3 bg-indigo-600 text-white rounded-2xl font-medium hover:bg-indigo-700 transition-colors shadow-sm whitespace-nowrap"
+          >
+            Search
+          </button>
         </div>
-      </div>
+      </form>
 
       {/* ---- type tabs ---- */}
+      {smartResults === null && (<>
       <div className="flex justify-center gap-2">
         {(
           [
@@ -442,6 +475,65 @@ function BrowseContent() {
                   Clear filters
                 </button>
               )}
+            </div>
+          )}
+        </div>
+      )}
+
+      </>)}
+
+      {/* ---- smart search results ---- */}
+      {smartResults !== null && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-800">
+              🔎 Smart Search Results
+            </h2>
+            <button
+              onClick={() => setSmartResults(null)}
+              className="text-sm text-indigo-600 hover:underline"
+            >
+              ← Back to browse
+            </button>
+          </div>
+
+          {smartLoading && (
+            <div className="text-center py-12 text-gray-400 text-lg animate-pulse">
+              🧠 Finding the best matches…
+            </div>
+          )}
+
+          {!smartLoading && smartResults.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {smartResults.map((r) => (
+                <BookCard
+                  key={r.id}
+                  id={r.id}
+                  title={r.title}
+                  author={r.author ?? ""}
+                  totalCopies={r.totalCount ?? 1}
+                  availableCopies={r.availableCount ?? 0}
+                  description={r.description}
+                />
+              ))}
+            </div>
+          )}
+
+          {!smartLoading && smartResults.length === 0 && (
+            <div className="text-center py-16">
+              <div className="text-5xl mb-4">📭</div>
+              <h3 className="text-lg font-semibold text-gray-700">
+                No matches found
+              </h3>
+              <p className="text-gray-500 mt-1">
+                We couldn&apos;t find anything for &ldquo;{query}&rdquo;
+              </p>
+              <Link
+                href={`/requests/new?query=${encodeURIComponent(query)}`}
+                className="mt-4 inline-block px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+              >
+                📬 Request this for our library
+              </Link>
             </div>
           )}
         </div>

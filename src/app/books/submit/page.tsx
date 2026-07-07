@@ -107,7 +107,7 @@ export default function SubmitBookPage() {
     setMessage(null);
 
     try {
-      const res = await fetch("/api/submissions", {
+      const res = await fetch("/api/library-requests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
