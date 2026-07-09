@@ -1,0 +1,143 @@
+# Created by Fwebster for 5.9
+
+# ----- Safer cross-platform alias -----
+# ----- Enable colored output -----
+export CLICOLOR=1
+export LSCOLORS=GxFxCxDxBxegedabagaced
+export LESS='-R --use-color -Dd+r$Du+b'
+alias ls='ls --color=auto'
+alias ll='ls -lah --color=auto'
+alias gs='git status'
+alias gp='git pull'
+alias gd='git diff'
+alias grep='grep --color=auto'
+
+PROMPT='%F{green}%n@%m%f:%F{blue}%d%f %# '
+
+# --- Enable prompt substitution (CRITICAL) ---
+setopt PROMPT_SUBST
+
+# --- Git branch info ---
+autoload -Uz vcs_info
+zstyle ':vcs_info:git:*' formats ' %F{magenta}(%b)%f'
+zstyle ':vcs_info:*' enable git
+
+precmd() {
+  vcs_info
+}
+
+PROMPT='%F{green}%n@%m%f:%F{blue}%~%f${vcs_info_msg_0_} %# '
+
+# --- Completion + selectable menu ---
+autoload -Uz compinit
+zmodload zsh/complist
+compinit
+
+zstyle ':completion:*' menu select=0
+
+# ----- Colorize completion lists using LS_COLORS -----
+zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS}
+
+# ----- Make descriptions stand out -----
+zstyle ':completion:*:descriptions' format '%F{yellow}-- %d --%f'
+zstyle ':completion:*:messages' format '%F{cyan}%d%f'
+zstyle ':completion:*:warnings' format '%F{red}No matches for: %d%f'
+
+# ----- Optional: Make list/menu show sooner -----
+setopt AUTO_LIST
+setopt AUTO_MENU
+
+# ----- Smarter history -----
+setopt HIST_IGNORE_ALL_DUPS
+setopt HIST_REDUCE_BLANKS
+setopt SHARE_HISTORY
+
+# ----- Navigate words faster -----
+bindkey '^[[1;5C' forward-word   # Ctrl+→
+bindkey '^[[1;5D' backward-word  # Ctrl+←
+
+# ----- History -----
+HISTSIZE=100000
+SAVEHIST=100000
+HISTFILE=~/.zsh_history
+setopt INC_APPEND_HISTORY SHARE_HISTORY
+setopt HIST_IGNORE_ALL_DUPS HIST_EXPIRE_DUPS_FIRST
+setopt HIST_IGNORE_SPACE HIST_VERIFY
+
+# ----- Navigation -----
+setopt AUTO_CD
+
+# ----- UX -----
+unsetopt BEEP
+setopt NO_BEEP
+
+# ----- Autosuggestions -----
+source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#6c7086"
+
+# ----- GPU Enablement -----
+export GALLIUM_DRIVER=d3d12
+export LIBGL_ALWAYS_SOFTWARE=false
+
+# ----- Copilot (Ubuntu path Default, not windows install) -----
+# ---- NVM (safe) ----
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
+# ----- Fuzzy Finding sourcing file -----
+# Ctrl‑R → fuzzy history
+# Alt‑C → fuzzy directories
+# **<TAB> → fuzzy files
+source /usr/share/doc/fzf/examples/key-bindings.zsh
+
+# ----- Autosuggestions (Ghost text) -----
+source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh
+
+# ----- Highlighting Options -----
+source ~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+
+
+# ─────────────────────────────────────────────────────────────
+ startup reminder (WSL Ubuntu 24.04)
+# ─────────────────────────────────────────────────────────────
+
+# Only run in interactive shells
+[[ -o interactive ]] || return
+
+# Only run inside WSL
+if grep -qi microsoft /proc/version 2>/dev/null; then
+  # One reminder per login session
+  COPILOT_REMINDER_FLAG="$HOME/.cache/.copilot_startup_reminder_shown"
+
+  if [[ ! -f "$COPILOT_REMINDER_FLAG" ]]; then
+    echo ""
+    echo "🔔 Copilot startup reminder"
+    echo "──────────────────────────"
+    echo "Before using Copilot, it helps to run:"
+    echo ""
+    echo " run the following FIRST"
+    echo " copilot-check"
+    echo " THEN USE THE FOLLOWING"
+    echo "  gh auth status"
+    echo "  copilot login"
+    echo "  copilot mcp list"
+    echo ""
+    echo "This avoids OAuth + MCP sync issues in WSL."
+    echo ""
+
+    mkdir -p "$(dirname "$COPILOT_REMINDER_FLAG")"
+    touch "$COPILOT_REMINDER_FLAG"
+  fi
+fi
+
+
+copilot-check() {
+  echo "🔍 Checking GitHub + Copilot status..."
+  gh auth status || return
+  copilot mcp list
+}
