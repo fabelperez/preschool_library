@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import Link from "next/link";
+
 import BookCard from "@/components/BookCard";
 import ResourceCard from "@/components/ResourceCard";
 import ThemeCard, { type ActiveThemeCheckout } from "@/components/ThemeCard";
@@ -26,18 +26,6 @@ interface ThemeWithStatus {
 interface Teacher {
   id: string;
   name: string;
-}
-
-interface SmartResult {
-  id: string;
-  title: string;
-  author?: string;
-  isbn?: string | null;
-  description?: string | null;
-  availableCount?: number;
-  totalCount?: number;
-  matchScore: number;
-  matchReasons?: string[];
 }
 
 interface BookResult {
