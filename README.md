@@ -8,6 +8,9 @@ A web application for managing a preschool library and teacher resource inventor
 # Install dependencies
 npm install
 
+# Set up environment variables
+cp .env.example .env
+
 # Set up the database
 npm run db:migrate
 npm run db:seed
